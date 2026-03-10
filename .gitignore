@@ -1,0 +1,25 @@
+﻿# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Build / output
+dist/
+coverage/
+.next/
+.vercel/
+
+# Env files
+.env
+*/.env
+
+# Editor / tooling
+.vscode/
+.idea/
+.cursor/
+
+# Python venv (AI service)
+ai-service/.venv/
+
+# Misc
+.DS_Store
