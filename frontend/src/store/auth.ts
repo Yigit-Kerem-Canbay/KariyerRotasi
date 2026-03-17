@@ -7,6 +7,7 @@ type User = {
   name: string;
   email: string;
   role: Role;
+  cvUrl?: string;
   createdAt: string;
 };
 
@@ -17,6 +18,7 @@ type State = {
 
 type Actions = {
   setAuth: (data: { user: User; token: string }) => void;
+  setUser: (user: User) => void;
   clear: () => void;
 };
 
@@ -29,6 +31,7 @@ export const useAuthStore = create<State & Actions>((set) => ({
       localStorage.setItem("kr_token", token);
     }
   },
+  setUser: (user) => set({ user }),
   clear: () => {
     set({ user: null, token: null });
     if (typeof window !== "undefined") {

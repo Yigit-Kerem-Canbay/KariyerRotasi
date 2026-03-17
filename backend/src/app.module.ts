@@ -10,6 +10,9 @@ import { JobsModule } from './jobs/jobs.module';
 import { ApplicationsModule } from './applications/applications.module';
 import { SkillsModule } from './skills/skills.module';
 import { AiModule } from './ai/ai.module';
+import { UploadsModule } from './uploads/uploads.module';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 
 @Module({
   imports: [
@@ -22,6 +25,11 @@ import { AiModule } from './ai/ai.module';
     ApplicationsModule,
     SkillsModule,
     AiModule,
+    UploadsModule,
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'uploads'),
+      serveRoot: '/uploads',
+    }),
   ],
   controllers: [AppController],
   providers: [AppService],
