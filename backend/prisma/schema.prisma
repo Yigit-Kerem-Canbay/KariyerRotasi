@@ -45,9 +45,12 @@ model Company {
   name        String
   description String?
   website     String?
-  location    String?
-  ownerId     String   @map("owner_id")
-  owner       User     @relation("CompanyOwner", fields: [ownerId], references: [id])
+  location      String?
+  employeeCount String?  @map("employee_count")
+  sector        String?
+  logoUrl       String?  @map("logo_url")
+  ownerId       String   @map("owner_id")
+  owner         User     @relation("CompanyOwner", fields: [ownerId], references: [id])
 
   jobs        Job[]
 
@@ -55,20 +58,33 @@ model Company {
 }
 
 model Job {
-  id          String   @id @default(uuid())
-  title       String
-  description String
-  companyId   String   @map("company_id")
-  company     Company  @relation(fields: [companyId], references: [id])
-  location    String
-  salaryMin   Int?     @map("salary_min")
-  salaryMax   Int?     @map("salary_max")
-  remote      Boolean  @default(false)
-  createdAt   DateTime @default(now()) @map("created_at")
+  id               String   @id @default(uuid())
+  title            String
+  description      String
+  companyId        String   @map("company_id")
+  company          Company  @relation(fields: [companyId], references: [id])
+  location         String
+  city             String?
+  district         String?
+  salaryMin        Int?     @map("salary_min")
+  salaryMax        Int?     @map("salary_max")
+  currency         String   @default("TRY")
+  workModel        String   @default("onsite") @map("work_model") // onsite, remote, hybrid
+  educationLevel   String?  @map("education_level")
+  experienceYears  String?  @map("experience_years")
+  militaryStatus   String?  @map("military_status")
+  language         String?
+  remote           Boolean  @default(false)
+  viewCount        Int      @default(0) @map("view_count")
+  createdAt        DateTime @default(now()) @map("created_at")
 
   applications Application[]
   jobSkills    JobSkill[]
 
+  @@index([city])
+  @@index([title])
+  @@index([companyId])
+  @@index([createdAt])
   @@map("jobs")
 }
 

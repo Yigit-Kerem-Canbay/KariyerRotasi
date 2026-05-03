@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 type Role = "job_seeker" | "employer" | "admin";
 
@@ -22,21 +23,17 @@ type Actions = {
   clear: () => void;
 };
 
-export const useAuthStore = create<State & Actions>((set) => ({
-  user: null,
-  token: null,
-  setAuth: ({ user, token }) => {
-    set({ user, token });
-    if (typeof window !== "undefined") {
-      localStorage.setItem("kr_token", token);
+export const useAuthStore = create<State & Actions>()(
+  persist(
+    (set) => ({
+      user: null,
+      token: null,
+      setAuth: ({ user, token }) => set({ user, token }),
+      setUser: (user) => set({ user }),
+      clear: () => set({ user: null, token: null }),
+    }),
+    {
+      name: "auth-storage", // unique name
     }
-  },
-  setUser: (user) => set({ user }),
-  clear: () => {
-    set({ user: null, token: null });
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("kr_token");
-    }
-  },
-}));
-
+  )
+);
