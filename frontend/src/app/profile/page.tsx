@@ -95,6 +95,23 @@ export default function ProfilePage() {
             )}
           </div>
 
+          {user.role === "job_seeker" ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4 border-t border-slate-100">
+              <Link
+                href="/profile/saved"
+                className="text-center py-3 rounded-xl font-semibold border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors"
+              >
+                Kayıtlı ilanlar
+              </Link>
+              <Link
+                href="/profile/applications"
+                className="text-center py-3 rounded-xl font-semibold border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors"
+              >
+                Başvurularım
+              </Link>
+            </div>
+          ) : null}
+
           <div className="pt-4 border-t border-slate-100 flex gap-4">
             <Link
               href="/profile/edit"

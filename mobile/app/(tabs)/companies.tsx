@@ -79,11 +79,11 @@ export default function CompaniesTabScreen() {
 
   const filtered = useMemo(() => {
     return companies.filter((c) => {
-      const q = searchTerm.toLowerCase();
+      const q = searchTerm.toLocaleLowerCase('tr-TR');
       const okSearch =
         !q ||
-        c.name.toLowerCase().includes(q) ||
-        !!(c.description && c.description.toLowerCase().includes(q));
+        c.name.toLocaleLowerCase('tr-TR').includes(q) ||
+        !!(c.description && c.description.toLocaleLowerCase('tr-TR').includes(q));
       const okSector =
         sectorPick === 'Tümü' || (c.sector || 'Genel') === sectorPick;
       const okLoc =
@@ -91,6 +91,13 @@ export default function CompaniesTabScreen() {
       return okSearch && okSector && okLoc;
     });
   }, [companies, searchTerm, sectorPick, locationPick]);
+
+  // Mobil performansı için client-side sayfalama (310 şirkette yeterli)
+  const [page, setPage] = useState(1);
+  const perPage = 30;
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, sectorPick, locationPick]);
 
   const sortedDisplay = useMemo(() => {
     const list = [...filtered];
@@ -104,6 +111,12 @@ export default function CompaniesTabScreen() {
     });
     return list;
   }, [filtered]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedDisplay.length / perPage));
+  const pageCompanies = useMemo(() => {
+    const start = (page - 1) * perPage;
+    return sortedDisplay.slice(start, start + perPage);
+  }, [page, sortedDisplay]);
 
   const renderItem = ({ item }: { item: Company }) => (
     <TouchableOpacity
@@ -172,12 +185,37 @@ export default function CompaniesTabScreen() {
         </View>
       ) : (
         <FlatList
-          data={sortedDisplay}
+          data={pageCompanies}
           keyExtractor={(c) => c.id}
           renderItem={renderItem}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
           contentContainerStyle={styles.list}
           ListEmptyComponent={<Text style={styles.empty}>Sonuç bulunamadı.</Text>}
+          ListFooterComponent={
+            totalPages > 1 ? (
+              <View style={styles.pager}>
+                <TouchableOpacity
+                  style={[styles.pageBtn, page <= 1 && styles.pageBtnDisabled]}
+                  disabled={page <= 1}
+                  onPress={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  <Text style={styles.pageBtnText}>Önceki</Text>
+                </TouchableOpacity>
+                <Text style={styles.pageLabel}>
+                  {page} / {totalPages}
+                </Text>
+                <TouchableOpacity
+                  style={[styles.pageBtn, page >= totalPages && styles.pageBtnDisabled]}
+                  disabled={page >= totalPages}
+                  onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  <Text style={styles.pageBtnText}>Sonraki</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={{ height: 20 }} />
+            )
+          }
         />
       )}
 
@@ -296,6 +334,24 @@ const styles = StyleSheet.create({
   jobsBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 },
   jobsBadgeText: { fontSize: 12, fontWeight: '600', color: theme.primary },
   empty: { textAlign: 'center', marginTop: 48, fontSize: 15, color: theme.muted },
+  pager: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    paddingTop: 14,
+    paddingBottom: 26,
+  },
+  pageBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: theme.primary,
+    alignItems: 'center',
+  },
+  pageBtnDisabled: { opacity: 0.35 },
+  pageBtnText: { color: '#fff', fontWeight: '800' },
+  pageLabel: { minWidth: 72, textAlign: 'center', color: theme.slate900, fontWeight: '800' },
 });
 
 const modalStyles = StyleSheet.create({

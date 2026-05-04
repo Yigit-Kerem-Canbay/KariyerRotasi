@@ -8,6 +8,7 @@ import { UsersModule } from './users/users.module';
 import { CompaniesModule } from './companies/companies.module';
 import { JobsModule } from './jobs/jobs.module';
 import { ApplicationsModule } from './applications/applications.module';
+import { SavedJobsModule } from './saved-jobs/saved-jobs.module';
 import { SkillsModule } from './skills/skills.module';
 import { AiModule } from './ai/ai.module';
 import { UploadsModule } from './uploads/uploads.module';
@@ -23,6 +24,7 @@ import { join } from 'path';
     CompaniesModule,
     JobsModule,
     ApplicationsModule,
+    SavedJobsModule,
     SkillsModule,
     AiModule,
     UploadsModule,

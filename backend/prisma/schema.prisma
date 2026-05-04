@@ -36,6 +36,7 @@ model User {
   companies    Company[]   @relation("CompanyOwner")
   applications Application[]
   userSkills   UserSkill[]
+  savedJobs    SavedJob[]
 
   @@map("users")
 }
@@ -80,6 +81,7 @@ model Job {
 
   applications Application[]
   jobSkills    JobSkill[]
+  savedBy      SavedJob[]
 
   @@index([city])
   @@index([title])
@@ -98,9 +100,22 @@ model Application {
   status    ApplicationStatus @default(pending)
   createdAt DateTime          @default(now()) @map("created_at")
 
+  @@unique([userId, jobId])
   @@index([jobId])
   @@index([userId])
   @@map("applications")
+}
+
+model SavedJob {
+  userId    String   @map("user_id")
+  jobId     String   @map("job_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@id([userId, jobId])
+  @@map("saved_jobs")
 }
 
 model Skill {

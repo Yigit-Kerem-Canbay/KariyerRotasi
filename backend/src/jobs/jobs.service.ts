@@ -15,6 +15,66 @@ function parseMulti(value: unknown): string[] {
     .filter(Boolean);
 }
 
+/**
+ * Postgres ILIKE + Türkçe İ/i köşe durumu:
+ * - 'BİM' lower() -> 'bi̇m' (i + combining dot)
+ * - kullanıcı 'bim' yazınca 'bim' kalır ve ILIKE eşleşmeyebilir.
+ * Bu yüzden aramayı 2-3 varyantla genişletiyoruz.
+ */
+function expandTurkishSearchVariants(input: string): string[] {
+  const raw = input.trim();
+  if (!raw) return [];
+
+  const variants = new Set<string>();
+  const add = (s: string) => {
+    const v = s.trim();
+    if (!v) return;
+    variants.add(v);
+    try {
+      variants.add(v.normalize('NFC'));
+    } catch {
+      // ignore
+    }
+  };
+
+  add(raw);
+
+  // En güvenilir: Türkçe locale ile normalize edilmiş küçük harf
+  try {
+    add(raw.toLocaleLowerCase('tr-TR'));
+  } catch {
+    // ignore
+  }
+  // Bazı Postgres collation'larda Unicode case-fold sapıtabiliyor.
+  // Bu yüzden Türkçe upper varyantını da ekleyip eşleşmeyi garanti ediyoruz.
+  try {
+    add(raw.toLocaleUpperCase('tr-TR'));
+  } catch {
+    // ignore
+  }
+
+  // İngilizce lower + dotted-i varyantı (i -> i + combining dot)
+  const lower = raw.toLowerCase();
+  add(lower);
+  if (lower.includes('i')) {
+    add(lower.replace(/i/g, 'i\u0307'));
+  }
+  if (lower.includes('ı')) {
+    // Bazı girdilerde ters dönüşüm gerekebiliyor
+    add(lower.replace(/ı/g, 'i'));
+  }
+
+  // Türkçe I/İ köşe durumları için ekstra varyantlar
+  // Not: ILIKE, 'İ' ve 'i' arasında her zaman eşleştirme yapamıyor.
+  // Bu yüzden pattern'i de 'İ' içerecek şekilde genişletiyoruz.
+  add(raw.replace(/i/g, 'İ'));
+  add(raw.replace(/I/g, 'ı'));
+  add(raw.replace(/ı/g, 'I'));
+  add(raw.replace(/İ/g, 'i'));
+
+  return Array.from(variants).filter(Boolean);
+}
+
 @Injectable()
 export class JobsService {
   constructor(private prisma: PrismaService) {}
@@ -24,7 +84,8 @@ export class JobsService {
     const limit = Math.min(Number(query.limit) || 20, 100);
     const skip = (page - 1) * limit;
 
-    let searchRaw = typeof query.search === 'string' ? query.search.trim() : '';
+    const searchRaw = typeof query.search === 'string' ? query.search.trim() : '';
+    const searchVariants = searchRaw ? expandTurkishSearchVariants(searchRaw) : [];
 
     const cities = parseMulti(query.cities ?? query.city).filter(Boolean);
     const sectors = parseMulti(query.sectors ?? query.sector).filter(Boolean);
@@ -40,18 +101,27 @@ export class JobsService {
 
     const andParts: Prisma.JobWhereInput[] = [];
 
-    if (searchRaw) {
+    // Şirket bazlı filtre (şirket detay "tüm ilanları gör" / mobil pagination için)
+    const companyIdRaw = typeof query.companyId === 'string' ? query.companyId.trim() : '';
+    if (companyIdRaw) {
+      andParts.push({ companyId: companyIdRaw });
+    }
+
+    if (searchVariants.length > 0) {
+      const containsAny = (field: string): Prisma.StringFilter[] =>
+        searchVariants.map((v) => ({ contains: v, mode: Prisma.QueryMode.insensitive } as any));
+
       andParts.push({
         OR: [
-          { title: { contains: searchRaw, mode: Prisma.QueryMode.insensitive } },
-          { description: { contains: searchRaw, mode: Prisma.QueryMode.insensitive } },
-          { location: { contains: searchRaw, mode: Prisma.QueryMode.insensitive } },
-          { city: { contains: searchRaw, mode: Prisma.QueryMode.insensitive } },
+          { OR: containsAny('title').map((f) => ({ title: f })) },
+          { OR: containsAny('description').map((f) => ({ description: f })) },
+          { OR: containsAny('location').map((f) => ({ location: f })) },
+          { OR: containsAny('city').map((f) => ({ city: f })) },
           {
             company: {
               OR: [
-                { name: { contains: searchRaw, mode: Prisma.QueryMode.insensitive } },
-                { sector: { contains: searchRaw, mode: Prisma.QueryMode.insensitive } },
+                { OR: containsAny('name').map((f) => ({ name: f })) },
+                { OR: containsAny('sector').map((f) => ({ sector: f })) },
               ],
             },
           },
@@ -59,7 +129,9 @@ export class JobsService {
             jobSkills: {
               some: {
                 skill: {
-                  OR: [{ name: { contains: searchRaw, mode: Prisma.QueryMode.insensitive } }],
+                  OR: searchVariants.map((v) => ({
+                    name: { contains: v, mode: Prisma.QueryMode.insensitive },
+                  })),
                 },
               },
             },

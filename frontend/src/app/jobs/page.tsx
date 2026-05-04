@@ -374,6 +374,9 @@ function JobsPageContent() {
   const [applied, setApplied] = useState<FilterState>(() => parseFilters(initialSp));
   const [draft, setDraft] = useState<FilterState>(() => parseFilters(initialSp));
 
+  const [companyId, setCompanyId] = useState(() => initialSp.get('companyId') ?? '');
+  const [companyName, setCompanyName] = useState(() => initialSp.get('company') ?? '');
+
   const [sort, setSort] = useState(() => initialSp.get('sort') ?? 'newest');
   const [page, setPage] = useState(() => Number(initialSp.get('page')) || 1);
 
@@ -392,6 +395,8 @@ function JobsPageContent() {
     setSort(sp.get('sort') ?? 'newest');
     setPage(Number(sp.get('page')) || 1);
     setSearch(sp.get('q') ?? '');
+    setCompanyId(sp.get('companyId') ?? '');
+    setCompanyName(sp.get('company') ?? '');
   }, []);
 
   useEffect(() => {
@@ -405,6 +410,8 @@ function JobsPageContent() {
     const qTrim = debouncedSearch.trim();
     if (qTrim) p.set('q', qTrim);
     writeFiltersIntoParams(applied, p);
+    if (companyId) p.set('companyId', companyId);
+    if (companyName) p.set('company', companyName);
 
     if (sort && sort !== 'newest') p.set('sort', sort);
     if (page > 1) p.set('page', String(page));
@@ -419,7 +426,7 @@ function JobsPageContent() {
     if (qs === curQs && typeof window !== 'undefined') return;
 
     router.replace(path, { scroll: false });
-  }, [applied, debouncedSearch, page, router, sort]);
+  }, [applied, companyId, companyName, debouncedSearch, page, router, sort]);
 
   useEffect(() => {
     syncRouterUrl();
@@ -442,6 +449,7 @@ function JobsPageContent() {
         page: page.toString(),
         limit: '15',
       });
+      if (companyId) params.append('companyId', companyId);
       const qTrim = debouncedSearch.trim();
       if (qTrim) params.append('search', qTrim);
 
@@ -470,7 +478,7 @@ function JobsPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [applied, debouncedSearch, page, sort]);
+  }, [applied, companyId, debouncedSearch, page, sort]);
 
   useEffect(() => {
     fetchJobs();
@@ -484,6 +492,12 @@ function JobsPageContent() {
   const handleClearDraftFilters = () => {
     const cleared = emptyFilters();
     setDraft(cleared);
+  };
+
+  const clearCompanyScope = () => {
+    setCompanyId('');
+    setCompanyName('');
+    setPage(1);
   };
 
   const handlePageChange = (newPage: number) => {
@@ -542,6 +556,25 @@ function JobsPageContent() {
               ) : null}
             </p>
           )}
+          {companyId ? (
+            <div className="mt-4 inline-flex max-w-3xl items-center justify-between gap-3 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-white backdrop-blur">
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-widest text-indigo-200">
+                  Şirket filtresi
+                </p>
+                <p className="truncate text-sm font-black">
+                  {companyName ? companyName : companyId}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={clearCompanyScope}
+                className="shrink-0 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-xs font-black hover:bg-white/20"
+              >
+                Temizle
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -24,6 +24,9 @@ import {
   warmupCompanyLogo,
   warmupCompanyLogoFor,
 } from '@/lib/companyLogo';
+import { api } from '@/lib/api';
+import { useAuthStore } from '@/store/auth';
+import { isAxiosError } from 'axios';
 
 const getAvatarColor = (name: string) => {
   const hash = Math.abs(name.split('').reduce((acc, char) => char.charCodeAt(0) + ((acc << 5) - acc), 0));
@@ -82,12 +85,37 @@ function LogoBadge({
 }
 
 export default function JobDetailPage() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const jobId = Array.isArray(id) ? id[0] : id;
+  const token = useAuthStore((s) => s.token);
+  const userRole = useAuthStore((s) => s.user?.role);
 
   const [job, setJob] = useState<any>(null);
   const [similarJobs, setSimilarJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saved, setSaved] = useState(false);
+  const [applied, setApplied] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
+
+  const refreshEngagement = useCallback(async (jobUuid: string) => {
+    if (!token) {
+      setSaved(false);
+      setApplied(false);
+      return;
+    }
+    try {
+      const [apps, sav] = await Promise.all([
+        api.get<{ applied: boolean }>(`/applications/status?jobId=${jobUuid}`),
+        api.get<{ saved: boolean }>(`/saved-jobs/status?jobId=${jobUuid}`),
+      ]);
+      setApplied(!!apps.data?.applied);
+      setSaved(!!sav.data?.saved);
+    } catch {
+      setApplied(false);
+      setSaved(false);
+    }
+  }, [token]);
 
   useEffect(() => {
     let cancelled = false;
@@ -96,7 +124,9 @@ export default function JobDetailPage() {
 
     (async () => {
       try {
-        const jr = await fetch(`http://localhost:4000/api/jobs/${id}`);
+        const jr = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api'}/jobs/${jobId}`,
+        );
         if (cancelled) return;
         if (!jr.ok) {
           setJob(null);
@@ -106,8 +136,9 @@ export default function JobDetailPage() {
         if (cancelled) return;
         setJob(j);
         warmupCompanyLogo(resolveLogoFileKey(j.company));
-
-        const sr = await fetch(`http://localhost:4000/api/jobs/${id}/similar`);
+        const sr = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api'}/jobs/${jobId}/similar`,
+        );
         if (cancelled) return;
         if (sr.ok) {
           const sim = await sr.json();
@@ -126,7 +157,17 @@ export default function JobDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [jobId]);
+
+  useEffect(() => {
+    if (!job?.id) return;
+    if (!token) {
+      setSaved(false);
+      setApplied(false);
+      return;
+    }
+    void refreshEngagement(job.id);
+  }, [job?.id, token, refreshEngagement]);
 
   useEffect(() => {
     similarJobs.forEach((sj: any) => {
@@ -134,6 +175,74 @@ export default function JobDetailPage() {
         warmupCompanyLogoFor({ name: sj.company.name, website: sj.company.website });
     });
   }, [similarJobs]);
+
+  const shareJob = async () => {
+    if (!job || typeof window === 'undefined') return;
+    const origin = (
+      process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
+    ).replace(/\/$/, '');
+    const url = `${origin}/job/${job.id}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: job.title, text: job.title, url });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        window.alert('Bağlantı panoya kopyalandı.');
+      } else {
+        window.prompt('İlan bağlantısı', url);
+      }
+    } catch {
+      /* paylaşım iptal */
+    }
+  };
+
+  const toggleSaved = async () => {
+    if (!job) return;
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+    if (userRole !== 'job_seeker') {
+      window.alert('Kaydetmek için iş arayan hesabıyla giriş yapın.');
+      return;
+    }
+    setActionBusy(true);
+    try {
+      if (saved) {
+        await api.delete(`/saved-jobs/${job.id}`);
+        setSaved(false);
+      } else {
+        await api.post('/saved-jobs', { jobId: job.id });
+        setSaved(true);
+      }
+    } catch {
+      window.alert('Kayıt işlemi tamamlanamadı.');
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const submitApply = async () => {
+    if (!job) return;
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+    if (userRole !== 'job_seeker') {
+      window.alert('Başvurmak için iş arayan hesabıyla giriş yapın.');
+      return;
+    }
+    setActionBusy(true);
+    try {
+      await api.post('/applications', { jobId: job.id });
+      setApplied(true);
+    } catch (err: unknown) {
+      if (isAxiosError(err) && err.response?.status === 409) setApplied(true);
+      else window.alert('Başvuru gönderilemedi.');
+    } finally {
+      setActionBusy(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -186,14 +295,33 @@ export default function JobDetailPage() {
                   {job.title}
                 </h1>
                 <div className="flex items-center gap-3">
-                  <button className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all">
-                    <Heart className="w-6 h-6" />
+                  <button
+                    type="button"
+                    disabled={actionBusy}
+                    aria-pressed={saved}
+                    onClick={() => void toggleSaved()}
+                    className={`w-12 h-12 rounded-2xl border flex items-center justify-center transition-all disabled:opacity-50 ${
+                      saved
+                        ? 'bg-rose-50 border-rose-200 text-rose-600'
+                        : 'bg-slate-50 border-slate-200 text-slate-400 hover:text-rose-500 hover:bg-rose-50'
+                    }`}
+                  >
+                    <Heart className={`w-6 h-6 ${saved ? 'fill-current' : ''}`} />
                   </button>
-                  <button className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 transition-all">
+                  <button
+                    type="button"
+                    onClick={() => void shareJob()}
+                    className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 transition-all"
+                  >
                     <Share2 className="w-6 h-6" />
                   </button>
-                  <button className="px-8 h-12 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black shadow-lg shadow-indigo-600/20 transition-all">
-                    Başvur
+                  <button
+                    type="button"
+                    disabled={applied || actionBusy}
+                    onClick={() => void submitApply()}
+                    className="px-8 h-12 rounded-2xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:pointer-events-none text-white font-black shadow-lg shadow-indigo-600/20 transition-all"
+                  >
+                    {applied ? 'Başvuruldu' : 'Başvur'}
                   </button>
                 </div>
               </div>

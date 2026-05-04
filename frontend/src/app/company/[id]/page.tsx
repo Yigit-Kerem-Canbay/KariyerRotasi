@@ -14,6 +14,7 @@ import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, LabelList,
   PieChart, Pie, CartesianGrid, Tooltip as RechartsTooltip, Legend
 } from 'recharts';
+import { companyLogoSrc, resolveLogoFileKey } from '@/lib/companyLogo';
 
 const parseEmployeeCount = (empStr: string) => {
   if (!empStr) return 500;
@@ -80,6 +81,8 @@ export default function CompanyDetailPage() {
   const [activeSection, setActiveSection] = useState('hakkinda');
   const [jobPage, setJobPage] = useState(1);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [companyJobs, setCompanyJobs] = useState<any[]>([]);
+  const [jobsMeta, setJobsMeta] = useState<{ total?: number; totalPages?: number } | null>(null);
 
   // Refs
   const sectionsRef = useRef<{ [key: string]: HTMLElement | null }>({});
@@ -105,6 +108,20 @@ export default function CompanyDetailPage() {
       .then(res => res.json())
       .then(data => setAllCompanies(data));
   }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    fetch(`http://localhost:4000/api/jobs?companyId=${id}&page=${jobPage}&limit=6&sort=newest`)
+      .then(res => res.json())
+      .then((data) => {
+        setCompanyJobs(data?.data ?? []);
+        setJobsMeta(data?.meta ?? null);
+      })
+      .catch(() => {
+        setCompanyJobs([]);
+        setJobsMeta(null);
+      });
+  }, [id, jobPage]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -217,33 +234,9 @@ export default function CompanyDetailPage() {
     );
   }
 
-  const realDomains = [
-    'aselsan.com.tr', 'ford.com.tr', 'trendyol.com', 'yemeksepeti.com', 'getir.com', 
-    'a101.com.tr', 'sokmarket.com.tr', 'bim.com.tr', 'migros.com.tr', 'koc.com.tr', 
-    'sabanci.com', 'turkcell.com.tr', 'turktelekom.com.tr', 'vodafone.com.tr', 
-    'akbank.com', 'garantibbva.com.tr', 'yapikredi.com.tr', 'qnbfinansbank.com', 
-    'turkishairlines.com', 'flypgs.com', 'tusas.com.tr', 'roketsan.com.tr', 'havelsan.com.tr', 
-    'beko.com.tr', 'arcelik.com.tr', 'vestel.com.tr', 'lcwaikiki.com', 'defacto.com', 'koton.com', 'misas.com.tr'
-  ];
-  
-  let domain = null;
-  for (let rd of realDomains) {
-     if (company.name.toLowerCase().includes(rd.split('.')[0].replace('sokmarket', 'şok').replace('koc', 'koç').replace('sabanci', 'sabancı').replace('tusas', 'tusaş'))) {
-         domain = rd;
-         break;
-     }
-  }
-  
-  if (company.name.toLowerCase().includes('misas') || company.name.toLowerCase().includes('misaş')) domain = 'misas.com.tr';
-  if (company.name.toLowerCase().includes('thy') || company.name.toLowerCase().includes('türk hava yolları')) domain = 'turkishairlines.com';
-  if (company.name.toLowerCase().includes('pegasus')) domain = 'flypgs.com';
-  if (company.name.toLowerCase().includes('şok')) domain = 'sokmarket.com.tr';
-  if (company.name.toLowerCase().includes('koç')) domain = 'koc.com.tr';
-  if (company.name.toLowerCase().includes('sabancı')) domain = 'sabanci.com';
+  const logoKey = resolveLogoFileKey({ name: company.name, website: company.website });
 
-  const jobsPerPage = 6;
-  const totalJobPages = Math.ceil((company.jobs?.length || 0) / jobsPerPage);
-  const currentJobs = (company.jobs || []).slice((jobPage - 1) * jobsPerPage, jobPage * jobsPerPage);
+  const totalJobPages = jobsMeta?.totalPages ?? 1;
 
   const similarCompanies = allCompanies
     .filter(c => c.id !== company.id && c.sector === company.sector)
@@ -287,23 +280,21 @@ export default function CompanyDetailPage() {
         {/* Main Header Card */}
         <div className="bg-white rounded-[32px] p-6 md:p-10 shadow-2xl shadow-indigo-900/10 mb-8 border border-gray-100 flex flex-col md:flex-row gap-6 md:gap-10 items-start md:items-center">
           <div className="w-32 h-32 md:w-40 md:h-40 rounded-[24px] shadow-xl shrink-0 bg-white border border-gray-100 overflow-hidden relative flex items-center justify-center">
-             {domain ? (
-                <Image 
-                  src={`/logos/${domain}.png`}
-                  alt={company.name}
-                  fill
-                  className="object-contain p-6"
-                  priority
-                  onError={(e) => {
-                     e.currentTarget.style.display = 'none';
-                     const fallback = e.currentTarget.parentElement?.querySelector('.fallback-logo');
-                     if(fallback) fallback.classList.remove('hidden');
-                  }}
-                />
-              ) : null}
-              <div className={`fallback-logo absolute inset-0 w-full h-full flex items-center justify-center font-black text-[80px] text-white ${domain ? 'hidden' : ''}`} style={{ backgroundColor: `hsl(${data.hash % 360}, 80%, 55%)` }}>
-                 {company.name.charAt(0)}
-              </div>
+            {logoKey ? (
+              <Image
+                src={companyLogoSrc(logoKey)}
+                alt={company.name}
+                fill
+                className="object-contain p-6"
+                priority
+              />
+            ) : null}
+            <div
+              className={`absolute inset-0 w-full h-full flex items-center justify-center font-black text-[80px] text-white ${logoKey ? 'hidden' : ''}`}
+              style={{ backgroundColor: `hsl(${data.hash % 360}, 80%, 55%)` }}
+            >
+              {company.name.charAt(0)}
+            </div>
           </div>
           
           <div className="flex-1 w-full">
@@ -434,15 +425,18 @@ export default function CompanyDetailPage() {
             <section id="ilanlar" ref={el => { sectionsRef.current['ilanlar'] = el; }} className="scroll-mt-24">
               <div className="flex items-center justify-between mb-6 px-2">
                 <h2 className="text-2xl font-black text-gray-900">Açık Pozisyonlar</h2>
-                <Link href="#" className="bg-indigo-50 text-indigo-700 px-5 py-2.5 rounded-xl font-black text-sm hover:bg-indigo-100 transition-all">
-                  Tümünü Gör ({company.jobs?.length || 0})
+                <Link
+                  href={`/jobs?companyId=${company.id}&company=${encodeURIComponent(company.name)}`}
+                  className="bg-indigo-50 text-indigo-700 px-5 py-2.5 rounded-xl font-black text-sm hover:bg-indigo-100 transition-all"
+                >
+                  Tümünü Gör ({(jobsMeta?.total ?? 0).toLocaleString('tr-TR')})
                 </Link>
               </div>
               
-              {company.jobs && company.jobs.length > 0 ? (
+              {companyJobs && companyJobs.length > 0 ? (
                 <div className="bg-white rounded-[32px] p-8 border border-gray-100 shadow-xl shadow-indigo-900/5">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                    {currentJobs.map((job: any) => {
+                    {companyJobs.map((job: any) => {
                       const hashJob = Math.abs(job.id.split('').reduce((acc: number, char: string) => char.charCodeAt(0) + ((acc << 5) - acc), 0));
                       const isRemote = hashJob % 3 === 0;
                       const isHybrid = hashJob % 3 === 1;
@@ -678,40 +672,22 @@ export default function CompanyDetailPage() {
                 <h2 className="text-2xl font-black text-gray-900 mb-6 px-2">Benzer Sektördeki Diğer Kuruluşlar</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {similarCompanies.map(sim => {
-                    const simDomain = sim.website ? sim.website.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0] : '';
-                    let mappedDomain = null;
-                    for (let rd of realDomains) {
-                       if (sim.name.toLowerCase().includes(rd.split('.')[0].replace('sokmarket', 'şok').replace('koc', 'koç').replace('sabanci', 'sabancı').replace('tusas', 'tusaş'))) {
-                           mappedDomain = rd;
-                           break;
-                       }
-                    }
-                    if (sim.name.toLowerCase().includes('misas') || sim.name.toLowerCase().includes('misaş')) mappedDomain = 'misas.com.tr';
-                    if (sim.name.toLowerCase().includes('thy') || sim.name.toLowerCase().includes('türk hava yolları')) mappedDomain = 'turkishairlines.com';
-                    if (sim.name.toLowerCase().includes('pegasus')) mappedDomain = 'flypgs.com';
-                    if (sim.name.toLowerCase().includes('şok')) mappedDomain = 'sokmarket.com.tr';
-                    if (sim.name.toLowerCase().includes('koç')) mappedDomain = 'koc.com.tr';
-                    if (sim.name.toLowerCase().includes('sabancı')) mappedDomain = 'sabanci.com';
+                    const simLogoKey = resolveLogoFileKey({ name: sim.name, website: sim.website });
                     const simHash = Math.abs(sim.name.split('').reduce((acc: number, char: string) => char.charCodeAt(0) + ((acc << 5) - acc), 0));
                     
                     return (
                       <Link key={sim.id} href={`/company/${sim.id}`} className="bg-white rounded-3xl p-6 border border-gray-100 hover:border-indigo-400 hover:shadow-2xl hover:shadow-indigo-900/5 transition-all flex items-center gap-5 group">
                         <div className="w-16 h-16 bg-white border border-gray-50 rounded-2xl shadow-sm flex items-center justify-center shrink-0 relative overflow-hidden">
-                           {mappedDomain ? (
+                           {simLogoKey ? (
                               <Image 
-                                src={`/logos/${mappedDomain}.png`}
+                                src={companyLogoSrc(simLogoKey)}
                                 alt={sim.name}
                                 fill
                                 sizes="64px"
                                 className="object-contain p-2.5"
-                                onError={(e) => {
-                                   e.currentTarget.style.display = 'none';
-                                   const fallback = e.currentTarget.parentElement?.querySelector('.fallback-logo');
-                                   if(fallback) fallback.classList.remove('hidden');
-                                }}
                               />
                             ) : null}
-                            <div className={`fallback-logo absolute inset-0 w-full h-full flex items-center justify-center font-black text-3xl text-white ${mappedDomain ? 'hidden' : ''}`} style={{ backgroundColor: `hsl(${simHash % 360}, 80%, 55%)` }}>
+                            <div className={`absolute inset-0 w-full h-full flex items-center justify-center font-black text-3xl text-white ${simLogoKey ? 'hidden' : ''}`} style={{ backgroundColor: `hsl(${simHash % 360}, 80%, 55%)` }}>
                                {sim.name.charAt(0)}
                             </div>
                         </div>

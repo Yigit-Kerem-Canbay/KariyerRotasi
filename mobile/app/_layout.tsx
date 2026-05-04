@@ -98,6 +98,17 @@ function RootLayoutNav() {
                 headerShadowVisible: false,
               }}
             />
+            <Stack.Screen
+              name="company-jobs/[id]"
+              options={{
+                headerShown: true,
+                headerBackTitle: 'Geri',
+                headerTintColor: theme.primary,
+                headerTitle: 'Şirket ilanları',
+                headerStyle: { backgroundColor: '#fff' },
+                headerShadowVisible: false,
+              }}
+            />
             <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
           </Stack>
         </ThemeProvider>

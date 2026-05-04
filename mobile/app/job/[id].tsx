@@ -7,10 +7,16 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   FlatList,
+  Share,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { isAxiosError } from 'axios';
 
 import api from '@/api/client';
+import { useAuthStore } from '@/store/auth';
+import { getWebOrigin } from '@/lib/config';
 import { theme } from '@/lib/theme';
 import { CompanyLogo } from '@/components/CompanyLogo';
 
@@ -56,10 +62,37 @@ export default function JobDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const navigation = useNavigation();
+  const token = useAuthStore((s) => s.token);
+  const userRole = useAuthStore((s) => s.user?.role);
 
   const [job, setJob] = useState<JobDetail | null>(null);
   const [similar, setSimilar] = useState<JobSimilar[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saved, setSaved] = useState(false);
+  const [applied, setApplied] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
+
+  const refreshEngagement = useCallback(
+    async (jobUuid: string) => {
+      if (!token) {
+        setSaved(false);
+        setApplied(false);
+        return;
+      }
+      try {
+        const [apps, sav] = await Promise.all([
+          api.get<{ applied: boolean }>(`/applications/status?jobId=${jobUuid}`),
+          api.get<{ saved: boolean }>(`/saved-jobs/status?jobId=${jobUuid}`),
+        ]);
+        setApplied(!!apps.data?.applied);
+        setSaved(!!sav.data?.saved);
+      } catch {
+        setApplied(false);
+        setSaved(false);
+      }
+    },
+    [token],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -88,6 +121,16 @@ export default function JobDetailScreen() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    if (!job?.id) return;
+    if (!token) {
+      setSaved(false);
+      setApplied(false);
+      return;
+    }
+    void refreshEngagement(job.id);
+  }, [job?.id, token, refreshEngagement]);
+
   useLayoutEffect(() => {
     navigation.setOptions({
       headerBackTitle: 'Geri',
@@ -112,6 +155,54 @@ export default function JobDetailScreen() {
     );
   }
 
+  const shareUrl = `${getWebOrigin().replace(/\/$/, '')}/job/${job.id}`;
+
+  const toggleSaved = async () => {
+    if (!token) {
+      router.push('/(auth)/login');
+      return;
+    }
+    if (userRole !== 'job_seeker') {
+      Alert.alert('Uyarı', 'Kaydetmek için iş arayan hesabıyla giriş yapın.');
+      return;
+    }
+    setActionBusy(true);
+    try {
+      if (saved) {
+        await api.delete(`/saved-jobs/${job.id}`);
+        setSaved(false);
+      } else {
+        await api.post('/saved-jobs', { jobId: job.id });
+        setSaved(true);
+      }
+    } catch {
+      Alert.alert('Hata', 'Kayıt işlemi tamamlanamadı.');
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const submitApply = async () => {
+    if (!token) {
+      router.push('/(auth)/login');
+      return;
+    }
+    if (userRole !== 'job_seeker') {
+      Alert.alert('Uyarı', 'Başvurmak için iş arayan hesabıyla giriş yapın.');
+      return;
+    }
+    setActionBusy(true);
+    try {
+      await api.post('/applications', { jobId: job.id });
+      setApplied(true);
+    } catch (err: unknown) {
+      if (isAxiosError(err) && err.response?.status === 409) setApplied(true);
+      else Alert.alert('Hata', 'Başvuru gönderilemedi.');
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
   const bullet = [job.city, job.location, job.workModel, job.remote ? 'Remote' : '']
     .filter(Boolean)
     .join(' · ');
@@ -120,9 +211,11 @@ export default function JobDetailScreen() {
     job.jobSkills?.length ? (
       <View style={styles.tagRow}>
         {job.jobSkills.map((x, i) => (
-          <Text key={`${x.skill.name}-${i}`} style={styles.tag}>
-            {x.skill.name}
-          </Text>
+          <View key={`${x.skill.name}-${i}`} style={styles.tagWrap}>
+            <Text style={styles.tag} numberOfLines={1} ellipsizeMode="tail">
+              {x.skill.name}
+            </Text>
+          </View>
         ))}
       </View>
     ) : null;
@@ -142,6 +235,44 @@ export default function JobDetailScreen() {
             </TouchableOpacity>
             <Text style={styles.small}>{bullet}</Text>
           </View>
+        </View>
+
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={[styles.iconBtn, saved && styles.iconBtnActive]}
+            activeOpacity={0.85}
+            disabled={actionBusy}
+            onPress={() => void toggleSaved()}
+          >
+            <FontAwesome
+              name={saved ? 'heart' : 'heart-o'}
+              size={18}
+              color={saved ? theme.destructive : theme.slate900}
+            />
+            <Text style={styles.iconBtnTxt}>{saved ? 'Kayıtlı' : 'Kaydet'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            activeOpacity={0.85}
+            onPress={() =>
+              void Share.share({
+                message: `${job.title} — ${shareUrl}`,
+                url: shareUrl,
+                title: job.title,
+              }).catch(() => {})
+            }
+          >
+            <FontAwesome name="share-alt" size={18} color={theme.slate900} />
+            <Text style={styles.iconBtnTxt}>Paylaş</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.applyBtn, (applied || actionBusy) && styles.applyBtnDisabled]}
+            activeOpacity={0.9}
+            disabled={applied || actionBusy}
+            onPress={() => void submitApply()}
+          >
+            <Text style={styles.applyBtnTxt}>{applied ? 'Başvuruldu' : 'Başvur'}</Text>
+          </TouchableOpacity>
         </View>
 
         <Text style={styles.salary}>{salaryLine(job.salaryMin, job.salaryMax)}</Text>
@@ -184,10 +315,24 @@ export default function JobDetailScreen() {
 
       {job.description ? (
         <View style={[styles.card, styles.descCard]}>
-          <Text style={styles.sectionTit}>İlan açıklaması</Text>
+          <Text style={styles.sectionTit}>İş tanımı ve aranan nitelikler</Text>
           <Text style={styles.desc}>{job.description.trim()}</Text>
         </View>
       ) : null}
+
+      <View style={[styles.card, styles.descCard]}>
+        <Text style={styles.sectionTit}>Yetenek uyumluluk analizi</Text>
+        <Text style={styles.descMuted}>
+          Yakında: CV’ne göre bu ilana uyum skorunu ve eksik yeteneklerini burada göstereceğiz.
+        </Text>
+      </View>
+
+      <View style={[styles.card, styles.descCard]}>
+        <Text style={styles.sectionTit}>AI maaş analizi</Text>
+        <Text style={styles.descMuted}>
+          Yakında: Piyasa maaş aralığına göre bu ilanın maaş bandını analiz edeceğiz.
+        </Text>
+      </View>
 
       {similar.length > 0 ? (
         <View style={styles.simSection}>
@@ -241,6 +386,34 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   small: { marginTop: 8, fontSize: 13, color: theme.muted, lineHeight: 18 },
+  actionRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  iconBtnActive: {
+    borderColor: 'rgba(244,63,94,0.35)',
+    backgroundColor: 'rgba(244,63,94,0.06)',
+  },
+  iconBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 14,
+    backgroundColor: theme.background,
+    paddingVertical: 10,
+  },
+  iconBtnTxt: { fontSize: 13, fontWeight: '800', color: theme.slate900 },
+  applyBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    backgroundColor: theme.primary,
+    paddingVertical: 10,
+  },
+  applyBtnDisabled: { opacity: 0.55 },
+  applyBtnTxt: { color: '#fff', fontWeight: '900', fontSize: 13 },
   salary: {
     marginTop: 14,
     fontSize: 20,
@@ -253,6 +426,7 @@ const styles = StyleSheet.create({
   gridVal: { marginTop: 4, fontSize: 14, fontWeight: '600', color: theme.slate900 },
 
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16 },
+  tagWrap: { maxWidth: '100%', alignSelf: 'flex-start' },
   tag: {
     backgroundColor: 'rgba(37, 99, 235, 0.1)',
     color: theme.primary,
@@ -260,7 +434,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 999,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
+    maxWidth: 220,
   },
 
   descCard: { paddingTop: 16 },
@@ -271,6 +446,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   desc: { fontSize: 15, color: theme.slate800, lineHeight: 24 },
+  descMuted: { fontSize: 14, color: theme.muted, lineHeight: 22 },
 
   simSection: { marginTop: 8 },
   simCard: {

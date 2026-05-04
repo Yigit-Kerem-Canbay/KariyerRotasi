@@ -85,6 +85,25 @@ export default function ProfileIndexScreen() {
             <Text style={styles.noCv}>Henüz bir CV yüklenmemiş.</Text>
           )}
 
+          {user.role === 'job_seeker' ? (
+            <View style={styles.twoCol}>
+              <TouchableOpacity
+                style={styles.secondaryBtn}
+                activeOpacity={0.88}
+                onPress={() => router.push('/profile/saved')}
+              >
+                <Text style={styles.secondaryBtnText}>Kayıtlı ilanlar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.secondaryBtn}
+                activeOpacity={0.88}
+                onPress={() => router.push('/profile/applications')}
+              >
+                <Text style={styles.secondaryBtnText}>Başvurularım</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
           <TouchableOpacity
             style={styles.editBtn}
             activeOpacity={0.9}
@@ -175,6 +194,18 @@ const styles = StyleSheet.create({
   cvSub: { fontSize: 12, color: theme.muted, marginTop: 2 },
   cvLink: { fontSize: 15, fontWeight: '700', color: theme.slate900 },
   noCv: { marginTop: 8, fontSize: 15, color: theme.muted, fontStyle: 'italic' },
+  twoCol: { flexDirection: 'row', gap: 10, marginTop: 24 },
+  secondaryBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.background,
+  },
+  secondaryBtnText: { fontSize: 14, fontWeight: '700', color: theme.slate900 },
   editBtn: {
     marginTop: 24,
     backgroundColor: theme.slate900,

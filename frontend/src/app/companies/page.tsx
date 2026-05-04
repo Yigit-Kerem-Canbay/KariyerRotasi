@@ -57,10 +57,11 @@ export default function CompaniesPage() {
 
   const filteredCompanies = useMemo(() => {
     return companies.filter((company) => {
+      const q = searchTerm.toLocaleLowerCase('tr-TR');
       const matchesSearch =
-        company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        company.name.toLocaleLowerCase('tr-TR').includes(q) ||
         (company.description &&
-          company.description.toLowerCase().includes(searchTerm.toLowerCase()));
+          company.description.toLocaleLowerCase('tr-TR').includes(q));
       const matchesSector =
         selectedSector === 'Tümü' || (company.sector || 'Genel') === selectedSector;
       const matchesLocation =

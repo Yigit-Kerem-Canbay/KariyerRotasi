@@ -15,6 +15,26 @@ export default function ProfileLayout() {
           headerShadowVisible: false,
         }}
       />
+      <Stack.Screen
+        name="saved"
+        options={{
+          headerShown: true,
+          title: 'Kayıtlı ilanlar',
+          headerTintColor: theme.primary,
+          headerStyle: { backgroundColor: theme.card },
+          headerShadowVisible: false,
+        }}
+      />
+      <Stack.Screen
+        name="applications"
+        options={{
+          headerShown: true,
+          title: 'Başvurularım',
+          headerTintColor: theme.primary,
+          headerStyle: { backgroundColor: theme.card },
+          headerShadowVisible: false,
+        }}
+      />
     </Stack>
   );
 }
