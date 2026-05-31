@@ -44,4 +44,22 @@ export class CompaniesService {
     }
     return company;
   }
+
+  async findTop(limit = 6) {
+    return this.prisma.company.findMany({
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        website: true,
+        location: true,
+        employeeCount: true,
+        sector: true,
+        logoUrl: true,
+        _count: { select: { jobs: true } },
+      },
+      orderBy: { jobs: { _count: 'desc' } },
+      take: limit,
+    });
+  }
 }

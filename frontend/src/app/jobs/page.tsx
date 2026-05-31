@@ -72,7 +72,7 @@ const LANGUAGE_OPTIONS = [
 
 const MILITARY_OPTIONS = ['Yapıldı', 'Tecilli', 'Muaf', 'Fark Etmez'];
 
-const EXPERIENCE_OPTIONS = ['Yeni Mezun', '1-3 Yıl', '3-5 Yıl', '5+ Yıl', 'Yönetici'];
+const EXPERIENCE_OPTIONS = ['Yeni Mezun', 'Junior', 'Orta Düzey', 'Uzman', 'Yönetici'];
 
 const WORK_MODEL_CONFIG = [
   { value: 'onsite', label: 'İş yerinde' },

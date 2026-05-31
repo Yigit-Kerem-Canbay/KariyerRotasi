@@ -371,7 +371,7 @@ export default function CompanyDetailPage() {
                 className={`w-full text-left px-5 py-4 rounded-2xl font-black text-[15px] transition-all flex justify-between items-center ${activeSection === 'ilanlar' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-gray-500 hover:bg-gray-50'}`}
               >
                 <div className="flex items-center gap-3"><Briefcase className="w-5 h-5" /> İş İlanları</div>
-                <span className={`px-2.5 py-0.5 rounded-full text-xs ${activeSection === 'ilanlar' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>{company.jobs?.length || 0}</span>
+                <span className={`px-2.5 py-0.5 rounded-full text-xs ${activeSection === 'ilanlar' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>{company._count?.jobs ?? jobsMeta?.total ?? 0}</span>
               </button>
               <button 
                 onClick={() => scrollToSection('ai-analiz')}

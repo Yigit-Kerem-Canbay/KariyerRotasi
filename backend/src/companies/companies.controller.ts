@@ -1,9 +1,14 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { CompaniesService } from './companies.service';
 
 @Controller('companies')
 export class CompaniesController {
   constructor(private readonly companiesService: CompaniesService) {}
+
+  @Get('top')
+  findTop(@Query('limit') limit?: string) {
+    return this.companiesService.findTop(Number(limit) || 6);
+  }
 
   @Get()
   findAll() {

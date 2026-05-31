@@ -28,7 +28,7 @@ const allTurkishCities = [
 
 const workModels = ['onsite', 'onsite', 'onsite', 'hybrid', 'hybrid', 'remote', 'remote'];
 const educationLevels = ['Üniversite', 'Üniversite', 'Üniversite', 'Yüksek Lisans', 'Ön Lisans', 'Fark Etmez'];
-const experienceLevels = ['Yeni Mezun', '1-3 Yıl', '1-3 Yıl', '3-5 Yıl', '5+ Yıl', 'Yönetici'];
+const experienceLevels = ['Yeni Mezun', 'Junior', 'Junior', 'Orta Düzey', 'Uzman', 'Yönetici'];
 const militaryStatuses = ['Yapıldı', 'Yapıldı', 'Muaf', 'Tecilli', 'Fark Etmez', 'Fark Etmez'];
 const languages = ['Fark Etmez', 'Fark Etmez', 'İngilizce (İyi)', 'İngilizce (Çok İyi)', 'İngilizce, Almanca'];
 

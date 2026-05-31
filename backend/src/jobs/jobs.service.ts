@@ -339,11 +339,26 @@ export class JobsService {
   }
 
   async discover(query: Record<string, unknown>) {
-    const skillsParam = typeof query.skills === 'string' ? query.skills : '';
-    const skills = parseMulti(skillsParam);
+    const userId = typeof query.userId === 'string' ? query.userId.trim() : '';
+    let skillsParam = typeof query.skills === 'string' ? query.skills : '';
+    let skills = parseMulti(skillsParam);
+
+    // If userId is provided and no explicit skills, fetch user's skills from DB
+    if (userId && skills.length === 0) {
+      try {
+        const userSkills = await this.prisma.userSkill.findMany({
+          where: { userId },
+          include: { skill: true },
+        });
+        skills = userSkills.map((us) => us.skill.name);
+      } catch {
+        // user not found or error — fall through
+      }
+    }
 
     if (skills.length === 0) {
-      return this.findAll(query);
+      // No skills available — return popular jobs sorted by viewCount
+      return this.findAll({ ...query, sort: 'recommended' });
     }
 
     const page = Number(query.page) || 1;
@@ -379,15 +394,25 @@ export class JobsService {
 
     const scoredJobs = jobs.map((job) => {
       const jobSkillNames = job.jobSkills.map((js) => js.skill.name.toLowerCase());
-      let matchCount = 0;
-      skills.forEach((userSkill) => {
-        if (jobSkillNames.includes(userSkill.toLowerCase())) matchCount++;
+      const userSkillsLower = skills.map((s) => s.toLowerCase());
+
+      // Bidirectional match: how many user skills match job + how many job skills match user
+      let userToJobMatch = 0;
+      userSkillsLower.forEach((us) => {
+        if (jobSkillNames.includes(us)) userToJobMatch++;
       });
 
-      const scorePercentage = Math.round(
-        (matchCount / Math.max(1, jobSkillNames.length)) * 100,
-      );
-      return { ...job, matchScore: Math.min(100, scorePercentage), matchCount };
+      let jobToUserMatch = 0;
+      jobSkillNames.forEach((js) => {
+        if (userSkillsLower.includes(js)) jobToUserMatch++;
+      });
+
+      // Weighted: 60% how well user fits job, 40% how well job fits user
+      const userFitRatio = userToJobMatch / Math.max(1, jobSkillNames.length);
+      const jobFitRatio = jobToUserMatch / Math.max(1, userSkillsLower.length);
+      const scorePercentage = Math.round((userFitRatio * 0.6 + jobFitRatio * 0.4) * 100);
+
+      return { ...job, matchScore: Math.min(100, scorePercentage), matchCount: userToJobMatch };
     });
 
     scoredJobs.sort((a, b) => {
@@ -406,5 +431,136 @@ export class JobsService {
         totalPages: Math.ceil(scoredJobs.length / limit),
       },
     };
+  }
+
+  // ───────── STATS ENDPOINTS ─────────
+
+  async getTotalCount(): Promise<{ total: number }> {
+    const total = await this.prisma.job.count();
+    return { total };
+  }
+
+  async getRecentCount(hours = 24): Promise<{ count: number }> {
+    const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+    const count = await this.prisma.job.count({
+      where: { createdAt: { gte: since } },
+    });
+    return { count };
+  }
+
+  async getExperienceCounts(): Promise<{ experienceYears: string; count: number }[]> {
+    const groups = await this.prisma.job.groupBy({
+      by: ['experienceYears'],
+      _count: { id: true },
+      orderBy: { _count: { id: 'desc' } },
+    });
+
+    return groups
+      .filter((g) => g.experienceYears)
+      .map((g) => ({
+        experienceYears: g.experienceYears!,
+        count: g._count.id,
+      }));
+  }
+
+  async getTopSectors(limit = 10): Promise<{ sector: string; count: number }[]> {
+    // Get sector from company relation, grouped by sector
+    const companies = await this.prisma.company.findMany({
+      where: { sector: { not: null } },
+      select: {
+        sector: true,
+        _count: { select: { jobs: true } },
+      },
+    });
+
+    const sectorMap = new Map<string, number>();
+    for (const c of companies) {
+      if (!c.sector) continue;
+      sectorMap.set(c.sector, (sectorMap.get(c.sector) || 0) + c._count.jobs);
+    }
+
+    return Array.from(sectorMap.entries())
+      .map(([sector, count]) => ({ sector, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit);
+  }
+
+  async getPopularSkills(limit = 10): Promise<{ name: string; count: number }[]> {
+    // Count how many jobs each skill appears in
+    const skills = await this.prisma.skill.findMany({
+      select: {
+        name: true,
+        _count: { select: { jobSkills: true } },
+      },
+      orderBy: { jobSkills: { _count: 'desc' } },
+      take: limit,
+    });
+
+    return skills.map((s) => ({
+      name: s.name,
+      count: s._count.jobSkills,
+    }));
+  }
+
+  async getAutocompleteSuggestions(
+    q: string,
+    limit = 8,
+  ): Promise<{ type: string; value: string }[]> {
+    if (!q || q.length < 2) return [];
+
+    const variants = expandTurkishSearchVariants(q);
+    const results: { type: string; value: string }[] = [];
+
+    // Search job titles (distinct)
+    const titleJobs = await this.prisma.job.findMany({
+      where: {
+        OR: variants.map((v) => ({
+          title: { contains: v, mode: Prisma.QueryMode.insensitive },
+        })),
+      },
+      select: { title: true },
+      distinct: ['title'],
+      take: limit,
+    });
+    for (const j of titleJobs) {
+      results.push({ type: 'position', value: j.title });
+    }
+
+    // Search company names
+    const companies = await this.prisma.company.findMany({
+      where: {
+        OR: variants.map((v) => ({
+          name: { contains: v, mode: Prisma.QueryMode.insensitive },
+        })),
+      },
+      select: { name: true },
+      take: 4,
+    });
+    for (const c of companies) {
+      results.push({ type: 'company', value: c.name });
+    }
+
+    // Search skills
+    const skills = await this.prisma.skill.findMany({
+      where: {
+        OR: variants.map((v) => ({
+          name: { contains: v, mode: Prisma.QueryMode.insensitive },
+        })),
+      },
+      select: { name: true },
+      take: 4,
+    });
+    for (const s of skills) {
+      results.push({ type: 'skill', value: s.name });
+    }
+
+    // Deduplicate and limit
+    const seen = new Set<string>();
+    return results.filter((r) => {
+      const key = `${r.type}:${r.value}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0, limit);
   }
 }
