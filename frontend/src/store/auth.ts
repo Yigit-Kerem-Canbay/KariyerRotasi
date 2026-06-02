@@ -9,7 +9,14 @@ type User = {
   email: string;
   role: Role;
   cvUrl?: string;
+  avatarUrl?: string;
   createdAt: string;
+  profile?: any;
+  education?: any[];
+  experience?: any[];
+  languages?: any[];
+  preferences?: any;
+  userSkills?: any[];
 };
 
 type State = {

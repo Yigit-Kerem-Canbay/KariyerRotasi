@@ -1,4 +1,6 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtUser } from '../auth/jwt.strategy';
 import { JobsService } from './jobs.service';
 
 @Controller('jobs')
@@ -52,6 +54,12 @@ export class JobsController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.jobsService.findOne(id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/match-analysis')
+  getMatchAnalysis(@Param('id') id: string, @Req() req: { user: JwtUser }) {
+    return this.jobsService.getMatchAnalysis(id, req.user.userId);
   }
 
   @Get(':id/similar')

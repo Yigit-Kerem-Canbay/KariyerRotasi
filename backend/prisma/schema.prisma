@@ -31,7 +31,14 @@ model User {
   passwordHash String
   role         UserRole    @default(job_seeker)
   cvUrl        String?     @map("cv_url")
+  avatarUrl    String?     @map("avatar_url")
   createdAt    DateTime    @default(now()) @map("created_at")
+
+  profile      UserProfile?
+  education    UserEducation[]
+  experience   UserExperience[]
+  languages    UserLanguage[]
+  preferences  UserPreference?
 
   companies    Company[]   @relation("CompanyOwner")
   applications Application[]
@@ -151,4 +158,86 @@ model JobSkill {
   @@id([jobId, skillId])
   @@index([skillId])
   @@map("job_skills")
+}
+
+model UserProfile {
+  id             String    @id @default(uuid())
+  userId         String    @unique @map("user_id")
+  about          String?   @db.Text
+  title          String?
+  phone          String?
+  birthDate      DateTime? @map("birth_date")
+  gender         String?
+  militaryStatus String?   @map("military_status")
+  driverLicense  String?   @map("driver_license")
+  city           String?
+  district       String?
+  githubUrl      String?   @map("github_url")
+  linkedinUrl    String?   @map("linkedin_url")
+  portfolioUrl   String?   @map("portfolio_url")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model UserEducation {
+  id             String    @id @default(uuid())
+  userId         String    @map("user_id")
+  school         String
+  degree         String    // Lise, Önlisans, Lisans, Yüksek Lisans vb.
+  fieldOfStudy   String    @map("field_of_study")
+  startDate      DateTime  @map("start_date")
+  endDate        DateTime? @map("end_date")
+  isContinuing   Boolean   @default(false) @map("is_continuing")
+  grade          String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_education")
+}
+
+model UserExperience {
+  id             String    @id @default(uuid())
+  userId         String    @map("user_id")
+  company        String
+  title          String
+  location       String?
+  startDate      DateTime  @map("start_date")
+  endDate        DateTime? @map("end_date")
+  isContinuing   Boolean   @default(false) @map("is_continuing")
+  description    String?   @db.Text
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_experience")
+}
+
+model UserLanguage {
+  id       String @id @default(uuid())
+  userId   String @map("user_id")
+  language String
+  level    String // A1, A2, B1, B2, C1, C2, Native
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_languages")
+}
+
+model UserPreference {
+  id               String   @id @default(uuid())
+  userId           String   @unique @map("user_id")
+  salaryMin        Int?     @map("salary_min")
+  salaryMax        Int?     @map("salary_max")
+  currency         String   @default("TRY")
+  workModels       String[] @map("work_models") // ["onsite", "remote", "hybrid"]
+  preferredCities  String[] @map("preferred_cities")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
 }

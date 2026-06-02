@@ -98,6 +98,9 @@ export default function JobDetailPage() {
   const [applied, setApplied] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
 
+  const [matchAnalysis, setMatchAnalysis] = useState<any>(null);
+  const [loadingAnalysis, setLoadingAnalysis] = useState(false);
+
   const refreshEngagement = useCallback(async (jobUuid: string) => {
     if (!token) {
       setSaved(false);
@@ -167,7 +170,16 @@ export default function JobDetailPage() {
       return;
     }
     void refreshEngagement(job.id);
-  }, [job?.id, token, refreshEngagement]);
+    
+    // Fetch AI Match Analysis
+    if (userRole === 'job_seeker') {
+      setLoadingAnalysis(true);
+      api.get(`/jobs/${job.id}/match-analysis`)
+        .then(res => setMatchAnalysis(res.data?.data))
+        .catch(err => console.error("Match analysis failed", err))
+        .finally(() => setLoadingAnalysis(false));
+    }
+  }, [job?.id, token, refreshEngagement, userRole]);
 
   useEffect(() => {
     similarJobs.forEach((sj: any) => {
@@ -388,58 +400,105 @@ export default function JobDetailPage() {
               </div>
             )}
 
-            {/* Skill Radar / Gap Analysis Module - UNIQUE FEATURE */}
-            {job.jobSkills && job.jobSkills.length > 0 && (
-              <div className="bg-gradient-to-br from-emerald-900 to-teal-900 rounded-[32px] p-8 md:p-10 shadow-xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/20 blur-[100px] rounded-full" />
-                <div className="absolute bottom-0 left-0 w-48 h-48 bg-teal-400/10 blur-[80px] rounded-full" />
+            {/* AI Match Analysis Module - UNIQUE FEATURE */}
+            {userRole === 'job_seeker' && (loadingAnalysis || matchAnalysis) && (
+              <div className="bg-gradient-to-br from-indigo-900 via-purple-900 to-indigo-950 rounded-[32px] p-8 md:p-10 shadow-2xl relative overflow-hidden border border-indigo-500/20">
+                <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/20 blur-[120px] rounded-full pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/20 blur-[100px] rounded-full pointer-events-none" />
 
                 <div className="relative z-10">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-3 bg-white/10 rounded-2xl backdrop-blur-sm">
-                      <Zap className="w-6 h-6 text-emerald-400" />
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-md shadow-inner shadow-white/10">
+                      <Zap className="w-8 h-8 text-purple-400" />
                     </div>
                     <div>
-                      <h2 className="text-xl font-black text-white">Yetenek Uyumluluk Analizi</h2>
-                      <p className="text-emerald-200 text-sm font-medium">Profiliniz ile bu ilan arasındaki eşleşme</p>
+                      <h2 className="text-2xl font-black text-white bg-clip-text text-transparent bg-gradient-to-r from-white to-purple-200">
+                        Yapay Zeka Uyumluluk Analizi
+                      </h2>
+                      <p className="text-indigo-200 font-medium mt-1">Profiliniz ve bu ilan arasındaki detaylı eşleşme analizi</p>
                     </div>
                   </div>
 
-                  <p className="text-emerald-100/80 text-sm font-medium mb-6">
-                    Bu ilan <span className="text-white font-black">{job.jobSkills.length}</span> farklı yetenek gerektirmektedir. 
-                    Profilinize yetenek ekleyerek ilanlarla eşleşme oranınızı görebilirsiniz.
-                  </p>
-
-                  {/* Skill Grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {job.jobSkills.map((js: any, i: number) => (
-                      <div key={i} className="bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center gap-3 hover:bg-white/10 transition-all">
-                        <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0">
-                          <span className="text-emerald-400 font-black text-sm">
-                            {js.skill.name.charAt(0)}
-                          </span>
-                        </div>
-                        <div>
-                          <div className="text-white font-bold text-sm">{js.skill.name}</div>
-                          <div className="text-emerald-300/60 text-xs font-medium">
-                            {js.required ? 'Zorunlu' : 'Tercih Edilen'}
+                  {loadingAnalysis ? (
+                    <div className="flex flex-col items-center justify-center py-12">
+                      <div className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-400 rounded-full animate-spin mb-4" />
+                      <p className="text-indigo-200 font-bold animate-pulse">Profiliniz analiz ediliyor...</p>
+                    </div>
+                  ) : matchAnalysis ? (
+                    <div className="space-y-6">
+                      <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-sm mb-6">
+                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4">
+                          <h3 className="text-white font-bold text-xl">Profil Uyumluluk Skoru</h3>
+                          <div className="text-3xl font-black text-purple-400 mt-2 md:mt-0">
+                            %{matchAnalysis.algorithmicScore || 0}
                           </div>
                         </div>
+                        {matchAnalysis.matchDetails && (
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+                            <div className="bg-black/20 rounded-xl p-3 text-center border border-white/5">
+                              <div className="text-xs font-bold text-indigo-300 mb-1 uppercase tracking-wider">Yetenek</div>
+                              <div className="text-lg font-black text-white">{matchAnalysis.matchDetails.skillScore} <span className="text-xs font-medium text-indigo-200/50">/ 45</span></div>
+                            </div>
+                            <div className="bg-black/20 rounded-xl p-3 text-center border border-white/5">
+                              <div className="text-xs font-bold text-indigo-300 mb-1 uppercase tracking-wider">Unvan</div>
+                              <div className="text-lg font-black text-white">{matchAnalysis.matchDetails.titleScore} <span className="text-xs font-medium text-indigo-200/50">/ 15</span></div>
+                            </div>
+                            <div className="bg-black/20 rounded-xl p-3 text-center border border-white/5">
+                              <div className="text-xs font-bold text-indigo-300 mb-1 uppercase tracking-wider">Konum</div>
+                              <div className="text-lg font-black text-white">{matchAnalysis.matchDetails.locationScore} <span className="text-xs font-medium text-indigo-200/50">/ 15</span></div>
+                            </div>
+                            <div className="bg-black/20 rounded-xl p-3 text-center border border-white/5">
+                              <div className="text-xs font-bold text-indigo-300 mb-1 uppercase tracking-wider">Çalışma Şekli</div>
+                              <div className="text-lg font-black text-white">{matchAnalysis.matchDetails.workModelScore} <span className="text-xs font-medium text-indigo-200/50">/ 15</span></div>
+                            </div>
+                            <div className="bg-black/20 rounded-xl p-3 text-center border border-white/5">
+                              <div className="text-xs font-bold text-indigo-300 mb-1 uppercase tracking-wider">Maaş</div>
+                              <div className="text-lg font-black text-white">{matchAnalysis.matchDetails.salaryScore} <span className="text-xs font-medium text-indigo-200/50">/ 10</span></div>
+                            </div>
+                          </div>
+                        )}
+                        <p className="text-white text-base leading-relaxed font-medium">
+                          {matchAnalysis.recommendation}
+                        </p>
                       </div>
-                    ))}
-                  </div>
 
-                  <div className="mt-6 bg-white/5 border border-white/10 rounded-2xl p-5 flex items-center gap-4">
-                    <div className="w-12 h-12 bg-emerald-500/20 rounded-2xl flex items-center justify-center shrink-0">
-                      <TrendingUp className="w-6 h-6 text-emerald-400" />
-                    </div>
-                    <div>
-                      <div className="text-white font-bold">Profilinizi Güçlendirin</div>
-                      <div className="text-emerald-200/70 text-sm font-medium">
-                        Bu ilanla eşleşme oranınızı artırmak için profilinize yukarıdaki yetenekleri ekleyin.
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="bg-emerald-950/30 border border-emerald-500/20 rounded-2xl p-6 backdrop-blur-sm">
+                          <h3 className="text-emerald-400 font-bold mb-4 flex items-center gap-2">
+                            <ShieldCheck className="w-5 h-5" /> Eşleşen Yetenekler
+                          </h3>
+                          {matchAnalysis.matchedSkills?.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                              {matchAnalysis.matchedSkills.map((skill: string, idx: number) => (
+                                <span key={idx} className="px-3 py-1.5 bg-emerald-500/20 text-emerald-300 rounded-lg text-sm font-bold border border-emerald-500/30">
+                                  {skill}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-emerald-200/50 text-sm italic">Eşleşen yetenek bulunamadı.</p>
+                          )}
+                        </div>
+
+                        <div className="bg-rose-950/30 border border-rose-500/20 rounded-2xl p-6 backdrop-blur-sm">
+                          <h3 className="text-rose-400 font-bold mb-4 flex items-center gap-2">
+                            <TrendingUp className="w-5 h-5" /> Geliştirilebilir Alanlar
+                          </h3>
+                          {matchAnalysis.missingSkills?.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                              {matchAnalysis.missingSkills.map((skill: string, idx: number) => (
+                                <span key={idx} className="px-3 py-1.5 bg-rose-500/20 text-rose-300 rounded-lg text-sm font-bold border border-rose-500/30">
+                                  {skill}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-rose-200/50 text-sm italic">Eksik yetenek bulunamadı, harika uyum!</p>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  ) : null}
                 </div>
               </div>
             )}

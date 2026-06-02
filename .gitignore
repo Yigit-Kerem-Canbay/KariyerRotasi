@@ -1,4 +1,4 @@
-﻿# Node
+# Node
 node_modules/
 npm-debug.log*
 yarn-error.log*
@@ -19,7 +19,7 @@ coverage/
 .cursor/
 
 # Python venv (AI service)
-ai-service/.venv/
+ai-service/venv/
 
 # Misc
 .DS_Store

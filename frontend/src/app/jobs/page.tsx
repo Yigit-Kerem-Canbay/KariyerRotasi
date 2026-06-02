@@ -3,6 +3,7 @@
 import { Suspense, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { useAuthStore } from '@/store/auth';
 import {
   Search,
   MapPin,
@@ -366,6 +367,7 @@ const JobCardSkeleton = () => (
 function JobsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useAuthStore();
 
   const initialSp = searchParams ?? new URLSearchParams();
 
@@ -449,6 +451,7 @@ function JobsPageContent() {
         page: page.toString(),
         limit: '15',
       });
+      if (user?.id) params.append('userId', user.id);
       if (companyId) params.append('companyId', companyId);
       const qTrim = debouncedSearch.trim();
       if (qTrim) params.append('search', qTrim);
@@ -478,7 +481,7 @@ function JobsPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [applied, companyId, debouncedSearch, page, sort]);
+  }, [applied, companyId, debouncedSearch, page, sort, user?.id]);
 
   useEffect(() => {
     fetchJobs();
