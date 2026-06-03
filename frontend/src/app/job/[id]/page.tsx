@@ -14,9 +14,10 @@ import {
   ShieldCheck,
   Zap,
   Heart,
-  Share2,
   TrendingUp,
   ChevronRight,
+  CalendarDays,
+  Share2,
 } from 'lucide-react';
 import {
   companyLogoSrc,
@@ -360,9 +361,15 @@ export default function JobDetailPage() {
                   </div>
                 )}
                 <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl text-sm font-medium text-slate-400">
-                  <Clock className="w-4 h-4" />
+                  <CalendarDays className="w-4 h-4" />
                   {new Date(job.createdAt).toLocaleDateString('tr-TR')}
                 </div>
+                {job.workingHours && job.workingHours.length > 0 && (
+                  <div className="flex items-center gap-2 px-4 py-2 bg-orange-50 text-orange-700 rounded-xl text-sm font-bold border border-orange-100">
+                    <Clock className="w-4 h-4" />
+                    {job.workingHours.join(', ')}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -564,11 +571,21 @@ export default function JobDetailPage() {
 
                 <div className="flex items-start gap-4">
                   <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                    <Clock className="w-5 h-5" />
+                    <CalendarDays className="w-5 h-5" />
                   </div>
                   <div>
                     <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Tecrübe</div>
                     <div className="font-black text-slate-800">{job.experienceYears || 'Belirtilmedi'}</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Çalışma Saatleri</div>
+                    <div className="font-black text-slate-800">{job.workingHours?.join(', ') || 'Esnek / Belirlenmemiş'}</div>
                   </div>
                 </div>
 

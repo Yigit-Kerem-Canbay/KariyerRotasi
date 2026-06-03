@@ -10,7 +10,8 @@ client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 def analyze_job_match_with_gemini(user_profile: dict, job_details: dict) -> dict:
     prompt = f"""
     Sen uzman bir İK uzmanı ve kariyer danışmanısın.
-    Adayın profil bilgilerini (yetenekler, eğitim, deneyim, maaş beklentisi, konum tercihleri vb.) ve iş ilanının gereksinimlerini (istenilen yetenekler, çalışma modeli, konum, maaş aralığı vb.) detaylıca karşılaştırıp bir UYUM ANALİZİ yap.
+    Adayın profil bilgilerini, yani yetenekler, eğitim, deneyim, maaş beklentisi, konum tercihleri, çalışma saatleri vb. özelliklerini, iş ilanının gereksinimleriyle (aranan yetenekler, çalışma modeli, çalışma saatleri, konum, maaş aralığı, eğitim seviyesi, tecrübe seviyesi, askerlik durumu ve yabancı dil) detaylıca karşılaştırıp bir UYUM ANALİZİ yap. İş ilanında aranan nitelikleri veya iş tanımını bulamazsan iş ilanının başlığını temel alarak analiz edebilirsin. İş ilanındaki teknolojileri/yetenekleri de dikkate al.
+    Özellikle kullanıcının "preferredWorkingHours" (tercih ettiği çalışma saatleri) ile ilanın "workingHours" alanlarını, lokasyon bilgilerini ve maaş beklentilerini karşılaştırarak değerlendirme raporuna bunu da yansıt. İlan esnek veya belirlenmemiş saatlerdeyse adaya uyar olarak kabul edebilirsin.
     
     Adayın Yetenekleri/Profili:
     {user_profile}

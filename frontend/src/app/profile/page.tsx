@@ -156,7 +156,7 @@ export default function ProfilePage() {
   const [certForm, setCertForm] = useState({ name: "", issuer: "", issueDate: "", expirationDate: "", credentialUrl: "" });
   const [langForm, setLangForm] = useState({ language: "", level: "" });
   const [skillForm, setSkillForm] = useState({ skillName: "" });
-  const [prefForm, setPrefForm] = useState({ salaryMin: "", salaryMax: "", currency: "TRY", workModels: "", preferredCities: "" });
+  const [prefForm, setPrefForm] = useState({ salaryMin: "", salaryMax: "", currency: "TRY", workModels: "", preferredCities: "", preferredWorkingHours: "" });
   const [mainProfileForm, setMainProfileForm] = useState({
     name: "", title: "", phone: "", birthDate: "", gender: "", city: "", district: "",
     militaryStatus: "", driverLicense: "", linkedinUrl: "", githubUrl: "", portfolioUrl: ""
@@ -388,6 +388,7 @@ export default function ProfilePage() {
         currency: prefForm.currency || "TRY",
         workModels: prefForm.workModels ? prefForm.workModels.split(",").map(s => s.trim()) : [],
         preferredCities: prefForm.preferredCities ? prefForm.preferredCities.split(",").map(s => s.trim()) : [],
+        preferredWorkingHours: prefForm.preferredWorkingHours ? prefForm.preferredWorkingHours.split(",").map(s => s.trim()) : [],
       };
       const res = await api.patch("/users/me/preferences", payload);
       setUser(res.data);
@@ -915,7 +916,8 @@ export default function ProfilePage() {
                           salaryMax: user.preferences?.salaryMax?.toString() || "",
                           currency: user.preferences?.currency || "TRY",
                           workModels: user.preferences?.workModels?.join(", ") || "",
-                          preferredCities: user.preferences?.preferredCities?.join(", ") || ""
+                          preferredCities: user.preferences?.preferredCities?.join(", ") || "",
+                          preferredWorkingHours: user.preferences?.preferredWorkingHours?.join(", ") || ""
                         });
                         setEditModal("preferences");
                       }}
@@ -946,6 +948,18 @@ export default function ProfilePage() {
                           {user.preferences?.preferredCities && user.preferences.preferredCities.length > 0 ? (
                             user.preferences.preferredCities.map((city: string) => (
                               <span key={city} className="px-2 py-0.5 bg-white border border-slate-200 text-slate-700 rounded text-xs font-bold">{city}</span>
+                            ))
+                          ) : (
+                            <span className="text-sm font-semibold text-slate-900">Belirtilmemiş</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="md:col-span-2">
+                        <h3 className="text-xs md:text-sm font-bold text-slate-400 uppercase mb-1">Çalışma Saatleri</h3>
+                        <div className="flex flex-wrap gap-1.5">
+                          {user.preferences?.preferredWorkingHours && user.preferences.preferredWorkingHours.length > 0 ? (
+                            user.preferences.preferredWorkingHours.map((hours: string) => (
+                              <span key={hours} className="px-2 py-0.5 bg-white border border-slate-200 text-slate-700 rounded text-xs font-bold">{hours}</span>
                             ))
                           ) : (
                             <span className="text-sm font-semibold text-slate-900">Belirtilmemiş</span>
@@ -1162,6 +1176,8 @@ export default function ProfilePage() {
               <input type="text" value={prefForm.workModels} onChange={e => setPrefForm({...prefForm, workModels: e.target.value})} className="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm focus:border-indigo-500 outline-none" placeholder="remote, hybrid, onsite" /></div>
             <div><label className="block text-xs md:text-sm font-bold text-slate-500 uppercase mb-1">Tercih Edilen Şehirler (virgülle ayırın)</label>
               <input type="text" value={prefForm.preferredCities} onChange={e => setPrefForm({...prefForm, preferredCities: e.target.value})} className="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm focus:border-indigo-500 outline-none" placeholder="İstanbul, Ankara" /></div>
+            <div><label className="block text-xs md:text-sm font-bold text-slate-500 uppercase mb-1">Çalışma Saatleri (virgülle ayırın)</label>
+              <input type="text" value={prefForm.preferredWorkingHours} onChange={e => setPrefForm({...prefForm, preferredWorkingHours: e.target.value})} className="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm focus:border-indigo-500 outline-none" placeholder="09:00 - 17:00, Esnek" /></div>
             <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
               <button type="button" onClick={() => setEditModal(null)} className="px-4 py-2 text-xs font-bold text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">İptal</button>
               <button type="submit" className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors">Kaydet</button>

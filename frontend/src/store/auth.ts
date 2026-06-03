@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-type Role = "job_seeker" | "employer" | "admin";
+type Role = "job_seeker" | "individual_employer" | "corporate_employer" | "admin";
 type DataSource = "CV" | "MANUAL";
 
 type ProfileCompletion = {
@@ -100,6 +100,7 @@ type UserPreference = {
   currency: string;
   workModels: string[];
   preferredCities: string[];
+  preferredWorkingHours: string[];
 };
 
 type UserCV = {

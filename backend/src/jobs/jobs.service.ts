@@ -307,16 +307,16 @@ export class JobsService {
           salaryScore: 0
         };
 
-        // 1. Skill Match (Max 45 points)
+        // 1. Skill Match (Max 40 points)
         const jobSkillNames = job.jobSkills.map((js) => js.skill.name.toLowerCase());
         if (jobSkillNames.length > 0 && userSkillsLower.length > 0) {
           let matches = 0;
           jobSkillNames.forEach(js => {
             if (userSkillsLower.some(us => us.includes(js) || js.includes(us))) matches++;
           });
-          matchDetails.skillScore = Number(((matches / jobSkillNames.length) * 45).toFixed(1));
+          matchDetails.skillScore = Number(((matches / jobSkillNames.length) * 40).toFixed(1));
         } else if (jobSkillNames.length === 0) {
-          matchDetails.skillScore = 25.5; // default points if job has no skills listed
+          matchDetails.skillScore = 20.0; // default points if job has no skills listed
         }
 
         // 2. Title Match (Max 15 points)
@@ -353,15 +353,31 @@ export class JobsService {
         }
         matchDetails.locationScore = locScore;
 
-        // 4. Work Model Match (Max 15 points)
-        let wmScore = 7.5;
+        // 4. Work Model Match (Max 10 points)
+        let wmScore = 5.0;
         if (userPrefData?.workModels?.length > 0 && job.workModel) {
           const wantsModel = userPrefData.workModels.some((m: string) => job.workModel.toLowerCase().includes(m.toLowerCase()));
-          if (wantsModel) wmScore = 15.0;
+          if (wantsModel) wmScore = 10.0;
         } else {
-          wmScore = 10.5;
+          wmScore = 7.0;
         }
         matchDetails.workModelScore = wmScore;
+
+        // 4.5 Working Hours Match (Max 10 points)
+        let whScore = 5.0;
+        const flexibleHourTags = ['Esnek / Belirlenmemiş', 'Esnek', 'Belirlenmemiş'];
+        const hasFlexibleJobHours = job.workingHours?.some(h => flexibleHourTags.includes(h));
+        
+        if (hasFlexibleJobHours) {
+          whScore = 10.0; // Automatically perfectly compatible if job is flexible
+        } else if (userPrefData?.preferredWorkingHours?.length > 0 && job.workingHours?.length > 0) {
+          const wantsHours = userPrefData.preferredWorkingHours.some((h: string) => job.workingHours.includes(h));
+          if (wantsHours) whScore = 10.0;
+          else whScore = 2.0;
+        } else {
+          whScore = 6.0; // neutral if no preference
+        }
+        (matchDetails as any).workingHoursScore = whScore;
 
         // 5. Salary Match (Max 10 points)
         let salScore = 5.5;
@@ -378,7 +394,7 @@ export class JobsService {
         }
         matchDetails.salaryScore = salScore;
 
-        let score = matchDetails.skillScore + matchDetails.titleScore + matchDetails.locationScore + matchDetails.workModelScore + matchDetails.salaryScore;
+        let score = matchDetails.skillScore + matchDetails.titleScore + matchDetails.locationScore + matchDetails.workModelScore + matchDetails.salaryScore + (matchDetails as any).workingHoursScore;
         
         // Add random fractional variation so scores look natural
         const randomFraction = Math.random() * 2.5;
@@ -737,7 +753,8 @@ export class JobsService {
         userSkills: { include: { skill: true } },
         preferences: true,
         education: true,
-        experience: true
+        experience: true,
+        languages: true
       }
     });
     if (!user) throw new Error('User not found');
@@ -747,20 +764,28 @@ export class JobsService {
       title: job.title,
       description: job.description,
       skills: job.jobSkills.map(js => js.skill.name),
-      level: (job as any).experienceYears || (job as any).experienceLevel,
+      level: job.experienceYears || (job as any).experienceLevel,
       location: job.location,
+      salaryMin: job.salaryMin,
       salaryMax: job.salaryMax,
-      workModel: job.workModel
+      workModel: job.workModel,
+      workingHours: job.workingHours,
+      educationLevel: job.educationLevel,
+      militaryStatus: job.militaryStatus,
+      language: job.language
     };
     
     const userProfile = {
       about: user.profile?.about,
       skills: user.userSkills.map(us => us.skill.name),
-      title: (user.profile as any)?.title,
+      title: user.profile?.title,
       city: user.profile?.city,
       education: user.education,
       experience: user.experience,
-      preferences: user.preferences
+      preferences: user.preferences,
+      preferredWorkingHours: user.preferences?.preferredWorkingHours,
+      militaryStatus: user.profile?.militaryStatus,
+      languages: user.languages
     };
 
     try {
@@ -771,7 +796,7 @@ export class JobsService {
       });
 
       // Calculate algorithmic score
-      let matchDetails = { skillScore: 0, titleScore: 0, locationScore: 0, workModelScore: 0, salaryScore: 0 };
+      let matchDetails = { skillScore: 0, titleScore: 0, locationScore: 0, workModelScore: 0, workingHoursScore: 0, salaryScore: 0 };
       const jobSkillNames = job.jobSkills.map((js) => js.skill.name.toLowerCase());
       const userSkillsLower = user.userSkills.map(us => us.skill.name.toLowerCase());
       
@@ -780,9 +805,9 @@ export class JobsService {
         jobSkillNames.forEach(js => {
           if (userSkillsLower.some(us => us.includes(js) || js.includes(us))) matches++;
         });
-        matchDetails.skillScore = Number(((matches / jobSkillNames.length) * 45).toFixed(1));
+        matchDetails.skillScore = Number(((matches / jobSkillNames.length) * 40).toFixed(1));
       } else if (jobSkillNames.length === 0) {
-        matchDetails.skillScore = 25.5; 
+        matchDetails.skillScore = 20.0; 
       }
 
       if ((user.profile as any)?.title && job.title) {
@@ -809,12 +834,24 @@ export class JobsService {
       }
       matchDetails.locationScore = locScore;
 
-      let wmScore = 7.5;
+      let wmScore = 5.0;
       if (user.preferences?.workModels && user.preferences.workModels.length > 0 && job.workModel) {
         const wantsModel = user.preferences.workModels.some((m: string) => job.workModel?.toLowerCase().includes(m.toLowerCase()));
-        if (wantsModel) wmScore = 15.0;
-      } else wmScore = 10.5;
+        if (wantsModel) wmScore = 10.0;
+      } else wmScore = 7.0;
       matchDetails.workModelScore = wmScore;
+
+      let whScore = 5.0;
+      const flexibleHourTags = ['Esnek / Belirlenmemiş', 'Esnek', 'Belirlenmemiş'];
+      const hasFlexibleJobHours = job.workingHours?.some(h => flexibleHourTags.includes(h));
+      if (hasFlexibleJobHours) {
+        whScore = 10.0;
+      } else if (user.preferences?.preferredWorkingHours && user.preferences.preferredWorkingHours.length > 0 && job.workingHours && job.workingHours.length > 0) {
+        const wantsHours = user.preferences.preferredWorkingHours.some((h: string) => job.workingHours.includes(h));
+        if (wantsHours) whScore = 10.0;
+        else whScore = 2.0;
+      } else whScore = 6.0;
+      matchDetails.workingHoursScore = whScore;
 
       let salScore = 5.5;
       if (user.preferences?.salaryMin && job.salaryMax) {
@@ -824,7 +861,7 @@ export class JobsService {
       } else salScore = 7.0;
       matchDetails.salaryScore = salScore;
 
-      let algorithmicScore = matchDetails.skillScore + matchDetails.titleScore + matchDetails.locationScore + matchDetails.workModelScore + matchDetails.salaryScore;
+      let algorithmicScore = matchDetails.skillScore + matchDetails.titleScore + matchDetails.locationScore + matchDetails.workModelScore + matchDetails.salaryScore + matchDetails.workingHoursScore;
       algorithmicScore = Math.min(100, Number((algorithmicScore + Math.random() * 2.5).toFixed(1)));
 
       return {

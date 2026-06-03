@@ -122,6 +122,7 @@ export class UpdatePreferenceDto {
   @IsOptional() @IsString() currency?: string;
   @IsOptional() @IsArray() workModels?: string[];
   @IsOptional() @IsArray() preferredCities?: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) preferredWorkingHours?: string[];
 }
 
 // ==================== CV MERGE ====================

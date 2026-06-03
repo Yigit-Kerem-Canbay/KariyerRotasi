@@ -7,7 +7,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Mail, Lock } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, XCircle } from "lucide-react";
 
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/Label";
 
 const schema = z.object({
   email: z.string().email("Geçerli bir e-posta girin."),
-  password: z.string().min(6, "Şifre en az 6 karakter olmalı."),
+  password: z.string().min(1, "Şifre alanı boş bırakılamaz."),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -37,12 +37,26 @@ export default function LoginPage() {
   async function onSubmit(values: FormValues) {
     try {
       const res = await api.post("/auth/login", values);
-      const { user, accessToken } = res.data;
+      const { user, accessToken, requiresVerification } = res.data;
+
+      // If email is not verified, redirect to verification page
+      if (requiresVerification) {
+        router.push(`/verify-email?email=${encodeURIComponent(values.email)}`);
+        return;
+      }
+
       setAuth({ user, token: accessToken });
-      router.push("/jobs");
+
+      // Redirect based on role
+      if (user.role === "individual_employer" || user.role === "corporate_employer") {
+        router.push("/jobs"); // Later: /employer/dashboard
+      } else {
+        router.push("/jobs");
+      }
     } catch (error: any) {
+      const msg = error.response?.data?.message;
       setError("root", {
-        message: error.response?.data?.message || "E-posta veya şifre hatalı.",
+        message: Array.isArray(msg) ? msg[0] : msg || "E-posta veya şifre hatalı.",
       });
     }
   }
@@ -113,10 +127,14 @@ export default function LoginPage() {
         </div>
 
         {errors.root && (
-          <div className="rounded-2xl bg-red-50 p-4 text-sm text-red-600 font-bold border border-red-100 flex items-center gap-3">
-            <div className="h-2 w-2 rounded-full bg-red-600 animate-pulse" />
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl bg-red-50 p-4 text-sm text-red-600 font-bold border border-red-100 flex items-center gap-3"
+          >
+            <XCircle className="h-4 w-4 flex-shrink-0" />
             {errors.root.message}
-          </div>
+          </motion.div>
         )}
 
         <Button
@@ -139,8 +157,8 @@ export default function LoginPage() {
 
       <p className="text-center text-base text-slate-600">
         Henüz hesabınız yok mu?{" "}
-        <Link 
-          href="/register" 
+        <Link
+          href="/register"
           className="font-extrabold text-blue-600 hover:text-blue-700 transition-colors underline underline-offset-4 decoration-2"
         >
           Hemen Kayıt Olun

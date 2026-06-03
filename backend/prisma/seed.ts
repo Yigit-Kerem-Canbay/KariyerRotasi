@@ -128,8 +128,19 @@ function generateCompanies(count: number) {
   return generated;
 }
 
+const WORKING_HOURS_OPTIONS = [
+  ["08:00-17:00"],
+  ["09:00-18:00"],
+  ["12:00-18:00"],
+  ["17:00-00:00"],
+  ["00:00-08:00"],
+  ["Vardiyalı"],
+  ["08:00-17:00", "17:00-00:00"], // Birden fazla seçenek sunanlar
+  ["Esnek / Belirlenmemiş"]
+];
+
 async function main() {
-  console.log("Preparing to seed 300+ companies...");
+  console.log("Preparing to seed 300+ companies and ~63,500 jobs...");
   const ALL_COMPANIES = [...REAL_COMPANIES, ...generateCompanies(280)];
 
   // Create credentials report
@@ -151,7 +162,8 @@ async function main() {
         name: comp.name + " Yetkilisi",
         email: defaultEmail,
         passwordHash: defaultPassword,
-        role: "employer"
+        role: "corporate_employer",
+        emailVerified: true
       }
     });
 
@@ -165,33 +177,61 @@ async function main() {
         sector: comp.sector,
         employeeCount: comp.emp,
         logoUrl: comp.logo, // We store full class name or url here. Since we used "bg-..." tailwind classes for fake logos
+        verificationStatus: "APPROVED",
+        isVerified: true,
         ownerId: user.id
       }
     });
 
-    // Create Jobs (1 to 5 jobs for each company to populate the site)
-    const numJobs = randomInt(1, 5);
+    // Collect company info to generate jobs later
+    comp.companyId = company.id;
+
+    mdContent += `| ${comp.name} | ${comp.sector} | ${comp.emp} | ${comp.loc} | \`${defaultEmail}\` |\n`;
+    i++;
+  }
+
+  // Generate ~63,500 Jobs
+  console.log(`\nGenerating 63,500 jobs across 310 companies...`);
+  const jobsData: any[] = [];
+  
+  for (const comp of ALL_COMPANIES) {
+    const numJobs = randomInt(190, 220); // ~205 jobs per company * 310 = ~63,550 jobs
     const availableTitles = JOB_TITLES_BY_SECTOR[comp.sector] || ["Açık Pozisyon", "Takım Arkadaşı", "Genel Başvuru"];
     
     for (let j = 0; j < numJobs; j++) {
       const jobTitle = randomItem(availableTitles);
-      const isRemote = Math.random() > 0.8; // 20% remote chance
+      const isRemote = Math.random() > 0.8;
+      
+      // 80% fixed hours, 20% flexible/undefined
+      const isFlexible = Math.random() > 0.8;
+      let hours = ["Esnek / Belirlenmemiş"];
+      if (!isFlexible) {
+        hours = randomItem(WORKING_HOURS_OPTIONS.slice(0, 7)); // Exclude the last flexible option
+      }
 
-      await prisma.job.create({
-        data: {
-          title: jobTitle,
-          description: `${comp.name} bünyesinde ${jobTitle} pozisyonunda görevlendirilmek üzere takım arkadaşları arıyoruz.`,
-          companyId: company.id,
-          location: isRemote ? "Uzaktan" : randomItem(CITIES),
-          salaryMin: randomInt(20000, 40000),
-          salaryMax: randomInt(45000, 80000),
-          remote: isRemote
-        }
+      jobsData.push({
+        title: jobTitle,
+        description: `${comp.name} bünyesinde ${jobTitle} pozisyonunda görevlendirilmek üzere takım arkadaşları arıyoruz.`,
+        companyId: comp.companyId,
+        location: isRemote ? "Uzaktan" : randomItem(CITIES),
+        salaryMin: randomInt(20000, 40000),
+        salaryMax: randomInt(45000, 80000),
+        remote: isRemote,
+        workingHours: hours
       });
     }
+  }
 
-    mdContent += `| ${comp.name} | ${comp.sector} | ${comp.emp} | ${comp.loc} | \`${defaultEmail}\` |\n`;
-    i++;
+  // Bulk insert jobs in chunks
+  const chunkSize = 5000;
+  let inserted = 0;
+  for (let c = 0; c < jobsData.length; c += chunkSize) {
+    const chunk = jobsData.slice(c, c + chunkSize);
+    await prisma.job.createMany({
+      data: chunk
+    });
+    inserted += chunk.length;
+    console.log(`Inserted ${inserted}/${jobsData.length} jobs...`);
   }
 
   const credentialsPath = path.join(process.cwd(), "..", "sirket_bilgileri.md");

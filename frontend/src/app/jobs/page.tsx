@@ -17,6 +17,7 @@ import {
   ChevronDown,
   X,
   ArrowUpDown,
+  CalendarDays,
 } from 'lucide-react';
 import { useDebounce } from 'use-debounce';
 import { TURKISH_PROVINCES_ALPHABETICAL } from '@/constants/turkishProvinces';
@@ -868,9 +869,15 @@ function JobsPageContent() {
                             : 'İş yerinde'}
                       </div>
                       <div className="flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
-                        <Clock className="h-3.5 w-3.5 shrink-0" />
+                        <CalendarDays className="h-3.5 w-3.5 shrink-0" />
                         {job.experienceYears ?? '—'}
                       </div>
+                      {job.workingHours && job.workingHours.length > 0 ? (
+                        <div className="flex items-center gap-1.5 rounded-lg bg-orange-50 px-3 py-1.5 text-xs font-bold text-orange-700">
+                          <Clock className="h-3.5 w-3.5 shrink-0" />
+                          {job.workingHours[0]} {job.workingHours.length > 1 ? `+${job.workingHours.length - 1}` : ''}
+                        </div>
+                      ) : null}
                       {job.salaryMin ? (
                         <div className="flex items-center gap-1 rounded-lg border border-emerald-100 bg-emerald-50/70 px-2.5 py-1.5 text-[11px] font-black text-emerald-800">
                           {job.salaryMin.toLocaleString('tr-TR')} –{' '}

@@ -14,8 +14,23 @@ datasource db {
 
 enum UserRole {
   job_seeker
-  employer
+  individual_employer
+  corporate_employer
   admin
+}
+
+enum VerificationStatus {
+  PENDING
+  EMAIL_VERIFIED
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+  BANNED
 }
 
 enum ApplicationStatus {
@@ -39,14 +54,20 @@ enum CvProcessingStatus {
 }
 
 model User {
-  id           String      @id @default(uuid())
-  name         String
-  email        String      @unique
-  passwordHash String
-  role         UserRole    @default(job_seeker)
-  cvUrl        String?     @map("cv_url")
-  avatarUrl    String?     @map("avatar_url")
-  createdAt    DateTime    @default(now()) @map("created_at")
+  id                 String        @id @default(uuid())
+  name               String
+  email              String        @unique
+  passwordHash       String
+  role               UserRole      @default(job_seeker)
+  phone              String?
+  emailVerified      Boolean       @default(false) @map("email_verified")
+  phoneVerified      Boolean       @default(false) @map("phone_verified")
+  verificationCode   String?       @map("verification_code")
+  verificationExpiry DateTime?     @map("verification_expiry")
+  accountStatus      AccountStatus @default(ACTIVE) @map("account_status")
+  cvUrl              String?       @map("cv_url")
+  avatarUrl          String?       @map("avatar_url")
+  createdAt          DateTime      @default(now()) @map("created_at")
 
   profile        UserProfile?
   education      UserEducation[]
@@ -67,18 +88,27 @@ model User {
 }
 
 model Company {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  website     String?
-  location      String?
-  employeeCount String?  @map("employee_count")
-  sector        String?
-  logoUrl       String?  @map("logo_url")
-  ownerId       String   @map("owner_id")
-  owner         User     @relation("CompanyOwner", fields: [ownerId], references: [id])
+  id                 String             @id @default(uuid())
+  name               String
+  description        String?
+  website            String?
+  location           String?
+  employeeCount      String?            @map("employee_count")
+  sector             String?
+  logoUrl            String?            @map("logo_url")
+  taxNumber          String?            @map("tax_number")
+  tradeRegNo         String?            @map("trade_reg_no")
+  corporateEmail     String?            @map("corporate_email")
+  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
+  verifiedAt         DateTime?          @map("verified_at")
+  verifiedBy         String?            @map("verified_by")
+  rejectionReason    String?            @map("rejection_reason")
+  isVerified         Boolean            @default(false) @map("is_verified")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  ownerId            String             @map("owner_id")
+  owner              User               @relation("CompanyOwner", fields: [ownerId], references: [id])
 
-  jobs        Job[]
+  jobs Job[]
 
   @@map("companies")
 }
@@ -101,6 +131,7 @@ model Job {
   militaryStatus   String?  @map("military_status")
   language         String?
   remote           Boolean  @default(false)
+  workingHours     String[] @map("working_hours")
   viewCount        Int      @default(0) @map("view_count")
   createdAt        DateTime @default(now()) @map("created_at")
 
@@ -323,6 +354,7 @@ model UserPreference {
   currency         String   @default("TRY")
   workModels       String[] @map("work_models") // ["onsite", "remote", "hybrid"]
   preferredCities  String[] @map("preferred_cities")
+  preferredWorkingHours String[] @map("preferred_working_hours")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
