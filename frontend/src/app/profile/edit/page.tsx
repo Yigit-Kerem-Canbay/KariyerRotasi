@@ -78,15 +78,21 @@ export default function ProfileEditPage() {
               )}
             </div>
 
-            <div>
+            <div className="relative group">
               <label className="block text-sm font-medium text-slate-700">
-                E-posta (Değiştirilemez)
+                E-posta adresi
               </label>
-              <input
-                disabled
-                className="mt-1 w-full rounded-xl border border-slate-100 bg-slate-50 px-4 py-2.5 text-slate-500 cursor-not-allowed"
-                value={user.email}
-              />
+              <div className="relative mt-1">
+                <input
+                  disabled
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-500 cursor-not-allowed pr-10"
+                  value={user.email}
+                  title="Güvenlik nedeniyle e-posta adresinizi değiştiremezsiniz."
+                />
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <span title="Bu alan değiştirilemez">🔒</span>
+                </div>
+              </div>
             </div>
           </div>
 

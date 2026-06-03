@@ -24,6 +24,20 @@ enum ApplicationStatus {
   rejected
 }
 
+enum DataSource {
+  CV
+  MANUAL
+}
+
+enum CvProcessingStatus {
+  UPLOADING
+  PARSING
+  PARSED
+  MERGE_PENDING
+  MERGED
+  FAILED
+}
+
 model User {
   id           String      @id @default(uuid())
   name         String
@@ -34,16 +48,20 @@ model User {
   avatarUrl    String?     @map("avatar_url")
   createdAt    DateTime    @default(now()) @map("created_at")
 
-  profile      UserProfile?
-  education    UserEducation[]
-  experience   UserExperience[]
-  languages    UserLanguage[]
-  preferences  UserPreference?
+  profile        UserProfile?
+  education      UserEducation[]
+  experience     UserExperience[]
+  projects       UserProject[]
+  certifications UserCertification[]
+  languages      UserLanguage[]
+  preferences    UserPreference?
+  cvVersions     UserCV[]
 
   companies    Company[]   @relation("CompanyOwner")
   applications Application[]
   userSkills   UserSkill[]
   savedJobs    SavedJob[]
+  auditLogs    AuditLog[]
 
   @@map("users")
 }
@@ -135,9 +153,15 @@ model Skill {
 }
 
 model UserSkill {
-  userId  String @map("user_id")
-  skillId String @map("skill_id")
-  level   Int    @default(1)
+  userId        String      @map("user_id")
+  skillId       String      @map("skill_id")
+  level         Int         @default(1)
+  sourceType    DataSource  @default(MANUAL) @map("source_type")
+  sourceId      String?     @map("source_id")
+  lastUpdatedBy DataSource  @default(MANUAL) @map("last_updated_by")
+  lastUpdatedAt DateTime    @default(now()) @map("last_updated_at")
+  confidence    Float?
+  deletedAt     DateTime?   @map("deleted_at")
 
   user  User  @relation(fields: [userId], references: [id])
   skill Skill @relation(fields: [skillId], references: [id])
@@ -161,21 +185,22 @@ model JobSkill {
 }
 
 model UserProfile {
-  id             String    @id @default(uuid())
-  userId         String    @unique @map("user_id")
-  about          String?   @db.Text
+  id             String      @id @default(uuid())
+  userId         String      @unique @map("user_id")
+  about          String?     @db.Text
+  aboutSource    DataSource  @default(MANUAL) @map("about_source")
   title          String?
   phone          String?
-  birthDate      DateTime? @map("birth_date")
+  birthDate      DateTime?   @map("birth_date")
   gender         String?
-  militaryStatus String?   @map("military_status")
-  driverLicense  String?   @map("driver_license")
+  militaryStatus String?     @map("military_status")
+  driverLicense  String?     @map("driver_license")
   city           String?
   district       String?
-  githubUrl      String?   @map("github_url")
-  linkedinUrl    String?   @map("linkedin_url")
-  portfolioUrl   String?   @map("portfolio_url")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  githubUrl      String?     @map("github_url")
+  linkedinUrl    String?     @map("linkedin_url")
+  portfolioUrl   String?     @map("portfolio_url")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -183,15 +208,21 @@ model UserProfile {
 }
 
 model UserEducation {
-  id             String    @id @default(uuid())
-  userId         String    @map("user_id")
+  id             String      @id @default(uuid())
+  userId         String      @map("user_id")
   school         String
-  degree         String    // Lise, Önlisans, Lisans, Yüksek Lisans vb.
-  fieldOfStudy   String    @map("field_of_study")
-  startDate      DateTime  @map("start_date")
-  endDate        DateTime? @map("end_date")
-  isContinuing   Boolean   @default(false) @map("is_continuing")
+  degree         String      // Lise, Önlisans, Lisans, Yüksek Lisans vb.
+  fieldOfStudy   String      @map("field_of_study")
+  startDate      DateTime    @map("start_date")
+  endDate        DateTime?   @map("end_date")
+  isContinuing   Boolean     @default(false) @map("is_continuing")
   grade          String?
+  sourceType     DataSource  @default(MANUAL) @map("source_type")
+  sourceId       String?     @map("source_id")
+  lastUpdatedBy  DataSource  @default(MANUAL) @map("last_updated_by")
+  lastUpdatedAt  DateTime    @default(now()) @map("last_updated_at")
+  confidence     Float?
+  deletedAt      DateTime?   @map("deleted_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -200,15 +231,21 @@ model UserEducation {
 }
 
 model UserExperience {
-  id             String    @id @default(uuid())
-  userId         String    @map("user_id")
+  id             String      @id @default(uuid())
+  userId         String      @map("user_id")
   company        String
   title          String
   location       String?
-  startDate      DateTime  @map("start_date")
-  endDate        DateTime? @map("end_date")
-  isContinuing   Boolean   @default(false) @map("is_continuing")
-  description    String?   @db.Text
+  startDate      DateTime    @map("start_date")
+  endDate        DateTime?   @map("end_date")
+  isContinuing   Boolean     @default(false) @map("is_continuing")
+  description    String?     @db.Text
+  sourceType     DataSource  @default(MANUAL) @map("source_type")
+  sourceId       String?     @map("source_id")
+  lastUpdatedBy  DataSource  @default(MANUAL) @map("last_updated_by")
+  lastUpdatedAt  DateTime    @default(now()) @map("last_updated_at")
+  confidence     Float?
+  deletedAt      DateTime?   @map("deleted_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -216,11 +253,61 @@ model UserExperience {
   @@map("user_experience")
 }
 
+model UserProject {
+  id             String      @id @default(uuid())
+  userId         String      @map("user_id")
+  name           String
+  description    String?     @db.Text
+  url            String?
+  technologies   String[]
+  startDate      DateTime?   @map("start_date")
+  endDate        DateTime?   @map("end_date")
+  isContinuing   Boolean     @default(false) @map("is_continuing")
+  sourceType     DataSource  @default(MANUAL) @map("source_type")
+  sourceId       String?     @map("source_id")
+  lastUpdatedBy  DataSource  @default(MANUAL) @map("last_updated_by")
+  lastUpdatedAt  DateTime    @default(now()) @map("last_updated_at")
+  confidence     Float?
+  deletedAt      DateTime?   @map("deleted_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_projects")
+}
+
+model UserCertification {
+  id             String      @id @default(uuid())
+  userId         String      @map("user_id")
+  name           String
+  issuer         String?
+  issueDate      DateTime?   @map("issue_date")
+  expirationDate DateTime?   @map("expiration_date")
+  credentialUrl  String?     @map("credential_url")
+  sourceType     DataSource  @default(MANUAL) @map("source_type")
+  sourceId       String?     @map("source_id")
+  lastUpdatedBy  DataSource  @default(MANUAL) @map("last_updated_by")
+  lastUpdatedAt  DateTime    @default(now()) @map("last_updated_at")
+  confidence     Float?
+  deletedAt      DateTime?   @map("deleted_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_certifications")
+}
+
 model UserLanguage {
-  id       String @id @default(uuid())
-  userId   String @map("user_id")
-  language String
-  level    String // A1, A2, B1, B2, C1, C2, Native
+  id            String      @id @default(uuid())
+  userId        String      @map("user_id")
+  language      String
+  level         String      // A1, A2, B1, B2, C1, C2, Native
+  sourceType    DataSource  @default(MANUAL) @map("source_type")
+  sourceId      String?     @map("source_id")
+  lastUpdatedBy DataSource  @default(MANUAL) @map("last_updated_by")
+  lastUpdatedAt DateTime    @default(now()) @map("last_updated_at")
+  confidence    Float?
+  deletedAt     DateTime?   @map("deleted_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -240,4 +327,46 @@ model UserPreference {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_preferences")
+}
+
+// CV Versioning - tracks all uploaded CVs
+model UserCV {
+  id               String             @id @default(uuid())
+  userId           String             @map("user_id")
+  version          Int                @default(1)
+  fileName         String             @map("file_name")
+  filePath         String             @map("file_path")
+  fileSize         Int?               @map("file_size")
+  uploadDate       DateTime           @default(now()) @map("upload_date")
+  processingStatus CvProcessingStatus @default(UPLOADING) @map("processing_status")
+  parsedData       Json?              @map("parsed_data")
+  mergePreview     Json?              @map("merge_preview")
+  parsedAt         DateTime?          @map("parsed_at")
+  mergedAt         DateTime?          @map("merged_at")
+  isActive         Boolean            @default(true) @map("is_active")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_cvs")
+}
+
+// Audit Log - tracks all profile changes
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  action     String   // CREATE, UPDATE, DELETE, CV_UPLOAD, CV_DELETE, CV_MERGE
+  entityType String   @map("entity_type") // EDUCATION, EXPERIENCE, PROJECT, CERTIFICATION, SKILL, LANGUAGE, PROFILE, CV
+  entityId   String?  @map("entity_id")
+  oldData    Json?    @map("old_data")
+  newData    Json?    @map("new_data")
+  metadata   Json?    // extra context (e.g. CV version, merge details)
+  timestamp  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([entityType])
+  @@index([timestamp])
+  @@map("audit_logs")
 }

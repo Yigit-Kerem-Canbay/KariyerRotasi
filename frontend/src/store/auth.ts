@@ -2,6 +2,117 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 type Role = "job_seeker" | "employer" | "admin";
+type DataSource = "CV" | "MANUAL";
+
+type ProfileCompletion = {
+  score: number;
+  sections: Record<string, boolean>;
+  suggestions: string[];
+};
+
+type UserProfile = {
+  id: string;
+  userId: string;
+  about?: string;
+  aboutSource?: DataSource;
+  title?: string;
+  phone?: string;
+  birthDate?: string;
+  gender?: string;
+  militaryStatus?: string;
+  driverLicense?: string;
+  city?: string;
+  district?: string;
+  githubUrl?: string;
+  linkedinUrl?: string;
+  portfolioUrl?: string;
+};
+
+type UserEducation = {
+  id: string;
+  school: string;
+  degree: string;
+  fieldOfStudy: string;
+  startDate: string;
+  endDate?: string;
+  isContinuing: boolean;
+  grade?: string;
+  sourceType: DataSource;
+  confidence?: number;
+};
+
+type UserExperience = {
+  id: string;
+  company: string;
+  title: string;
+  location?: string;
+  startDate: string;
+  endDate?: string;
+  isContinuing: boolean;
+  description?: string;
+  sourceType: DataSource;
+  confidence?: number;
+};
+
+type UserProject = {
+  id: string;
+  name: string;
+  description?: string;
+  url?: string;
+  technologies: string[];
+  startDate?: string;
+  endDate?: string;
+  isContinuing: boolean;
+  sourceType: DataSource;
+  confidence?: number;
+};
+
+type UserCertification = {
+  id: string;
+  name: string;
+  issuer?: string;
+  issueDate?: string;
+  expirationDate?: string;
+  credentialUrl?: string;
+  sourceType: DataSource;
+  confidence?: number;
+};
+
+type UserLanguage = {
+  id: string;
+  language: string;
+  level: string;
+  sourceType: DataSource;
+};
+
+type UserSkill = {
+  userId: string;
+  skillId: string;
+  level: number;
+  sourceType: DataSource;
+  skill: { id: string; name: string };
+};
+
+type UserPreference = {
+  id: string;
+  salaryMin?: number;
+  salaryMax?: number;
+  currency: string;
+  workModels: string[];
+  preferredCities: string[];
+};
+
+type UserCV = {
+  id: string;
+  version: number;
+  fileName: string;
+  filePath: string;
+  uploadDate: string;
+  processingStatus: string;
+  parsedAt?: string;
+  mergedAt?: string;
+  isActive: boolean;
+};
 
 type User = {
   id: string;
@@ -11,12 +122,16 @@ type User = {
   cvUrl?: string;
   avatarUrl?: string;
   createdAt: string;
-  profile?: any;
-  education?: any[];
-  experience?: any[];
-  languages?: any[];
-  preferences?: any;
-  userSkills?: any[];
+  profile?: UserProfile;
+  education?: UserEducation[];
+  experience?: UserExperience[];
+  projects?: UserProject[];
+  certifications?: UserCertification[];
+  languages?: UserLanguage[];
+  preferences?: UserPreference;
+  userSkills?: UserSkill[];
+  cvVersions?: UserCV[];
+  profileCompletionScore?: ProfileCompletion;
 };
 
 type State = {
@@ -40,7 +155,9 @@ export const useAuthStore = create<State & Actions>()(
       clear: () => set({ user: null, token: null }),
     }),
     {
-      name: "auth-storage", // unique name
+      name: "auth-storage",
     }
   )
 );
+
+export type { User, UserProfile, UserEducation, UserExperience, UserProject, UserCertification, UserLanguage, UserSkill, UserPreference, UserCV, ProfileCompletion };

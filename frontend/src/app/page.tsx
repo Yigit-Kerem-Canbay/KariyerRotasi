@@ -276,16 +276,16 @@ export default function Home() {
     ]).then(([total, recent, exp, sectors, skills]) => {
       setTotalJobs(total.total);
       setRecentCount(recent.count);
-      setExperienceCounts(exp);
-      setTopSectors(sectors);
-      setPopularSkills(skills);
+      setExperienceCounts(Array.isArray(exp) ? exp : []);
+      setTopSectors(Array.isArray(sectors) ? sectors : []);
+      setPopularSkills(Array.isArray(skills) ? skills : []);
       setLoadingStats(false);
     });
 
     // 2. Top companies
     fetch(`${API}/companies/top?limit=6`)
       .then(r => r.json())
-      .then(data => { setTopCompanies(data); setLoadingCompanies(false); })
+      .then(data => { setTopCompanies(Array.isArray(data) ? data : []); setLoadingCompanies(false); })
       .catch(() => setLoadingCompanies(false));
 
   }, []);
