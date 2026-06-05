@@ -3,6 +3,7 @@
 import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
   User, Mail, MapPin, Briefcase, GraduationCap,
@@ -10,7 +11,7 @@ import {
   Phone, Globe, Calendar, Building, Trash2,
   Award, Book, FolderKanban, Languages, X,
   ChevronDown, Check, AlertTriangle, Eye, Upload,
-  ExternalLink, Shield, Clock
+  ExternalLink, Shield, Clock, Heart, Send
 } from "lucide-react";
 
 // =================================================================
@@ -564,6 +565,24 @@ export default function ProfilePage() {
                     <p className="text-xs md:text-sm text-slate-500 mt-0.5">{uploading ? "10-15 saniye sürebilir." : "PDF yükle, profili dolduralım!"}</p>
                   </div>
                 )}
+              </div>
+
+              {/* Navigation Links for Applications and Saved Jobs */}
+              <div className="mt-6 pt-4 border-t border-slate-100 flex flex-col gap-2">
+                <Link href="/profile/applications" className="w-full flex items-center justify-between p-3 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors group">
+                  <div className="flex items-center gap-2">
+                    <Send className="w-4 h-4" />
+                    <span className="font-bold text-sm">Başvurularım</span>
+                  </div>
+                  <ChevronDown className="w-4 h-4 -rotate-90 opacity-50 group-hover:opacity-100 transition-opacity" />
+                </Link>
+                <Link href="/profile/saved" className="w-full flex items-center justify-between p-3 rounded-xl bg-pink-50 text-pink-700 hover:bg-pink-100 transition-colors group">
+                  <div className="flex items-center gap-2">
+                    <Heart className="w-4 h-4" />
+                    <span className="font-bold text-sm">Favori İlanlarım</span>
+                  </div>
+                  <ChevronDown className="w-4 h-4 -rotate-90 opacity-50 group-hover:opacity-100 transition-opacity" />
+                </Link>
               </div>
             </div>
           </div>

@@ -49,7 +49,7 @@ export default function LoginPage() {
 
       // Redirect based on role
       if (user.role === "individual_employer" || user.role === "corporate_employer") {
-        router.push("/jobs"); // Later: /employer/dashboard
+        router.push("/employer/jobs");
       } else {
         router.push("/jobs");
       }

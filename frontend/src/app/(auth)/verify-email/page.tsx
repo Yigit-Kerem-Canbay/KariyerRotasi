@@ -10,7 +10,7 @@ import { useAuthStore } from "@/store/auth";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 
-export default function VerifyEmailPage() {
+function VerifyEmailForm() {
   const searchParams = useSearchParams();
   const email = searchParams.get("email") ?? "";
   const router = useRouter();
@@ -99,7 +99,11 @@ export default function VerifyEmailPage() {
         setAuth({ user, token: accessToken });
         setSuccess(true);
         setTimeout(() => {
-          router.push("/jobs");
+          if (user.role === "individual_employer" || user.role === "corporate_employer") {
+            router.push("/employer/jobs");
+          } else {
+            router.push("/jobs");
+          }
         }, 1500);
       }
     } catch (err: any) {
@@ -252,5 +256,13 @@ export default function VerifyEmailPage() {
         </>
       )}
     </motion.div>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <React.Suspense fallback={<div>Yükleniyor...</div>}>
+      <VerifyEmailForm />
+    </React.Suspense>
   );
 }

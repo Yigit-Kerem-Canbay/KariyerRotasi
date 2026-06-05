@@ -619,7 +619,7 @@ export class UsersService {
       // 6. Send to AI Service
       const formData = new FormData();
       formData.append('file', file.buffer, {
-        filename: file.originalname,
+        filename: fileName,
         contentType: file.mimetype,
       });
 

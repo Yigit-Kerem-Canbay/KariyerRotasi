@@ -10,13 +10,15 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-gray-200/80 shadow-sm">
-      <div className="mx-auto max-w-[1200px] h-[70px] flex items-center justify-between px-4">
-        <Link href="/" className="flex items-center gap-2 group outline-none shrink-0 border-r border-gray-200 pr-6">
-          <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/20 group-hover:scale-105 transition-transform">
-            <Briefcase className="text-white w-5 h-5" />
-          </div>
-          <span className="font-extrabold tracking-tight text-[22px] text-gray-900">
-            kariyer<span className="text-indigo-600 font-medium">rotası</span>
+      <div className="mx-auto max-w-[1200px] h-[85px] flex items-center justify-between px-4">
+        <Link href="/" className="flex items-center gap-3 group outline-none shrink-0 border-r border-gray-200 pr-6">
+          <img 
+            src="/logo.png" 
+            alt="KariyerRotası Logo" 
+            className="h-[70px] w-auto object-contain drop-shadow-sm group-hover:scale-105 transition-transform origin-left" 
+          />
+          <span className="font-extrabold tracking-tight text-[24px] text-gray-900">
+            Kariyer<span className="text-indigo-600 font-medium">Rotası</span>
           </span>
         </Link>
         
@@ -28,20 +30,40 @@ export function Navbar() {
         </nav>
 
         <div className="flex items-center gap-4 shrink-0">
-          <Link href="/employer" className="hidden sm:block">
-            <Button variant="ghost" className="text-[14px] font-semibold text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 h-10 px-4 rounded-xl transition-colors">
-              İşveren Çözümleri
-            </Button>
-          </Link>
+          {!token && (
+            <Link href="/employer" className="hidden sm:block">
+              <Button variant="ghost" className="text-[14px] font-semibold text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 h-10 px-4 rounded-xl transition-colors">
+                İşveren Çözümleri
+              </Button>
+            </Link>
+          )}
 
           {token ? (
             <div className="flex items-center gap-2">
-              <Link href="/profile">
-                <Button variant="outline" className="h-10 px-4 gap-2 font-semibold text-gray-700 hover:bg-slate-50 border-gray-200 rounded-xl transition-colors">
-                  <User className="h-4 w-4 text-indigo-600" />
-                  <span>{user?.name?.split(" ")[0]}</span>
-                </Button>
-              </Link>
+              {(user?.role === 'individual_employer' || user?.role === 'corporate_employer') ? (
+                <>
+                  <Link href="/employer/post-job">
+                    <Button variant="outline" className="h-10 px-4 gap-2 font-semibold text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 rounded-xl transition-colors">
+                      <Briefcase className="h-4 w-4" />
+                      <span>İlan Ver</span>
+                    </Button>
+                  </Link>
+                  <Link href="/employer/jobs">
+                    <Button variant="outline" className="h-10 px-4 gap-2 font-semibold text-gray-700 hover:bg-slate-50 border-gray-200 rounded-xl transition-colors">
+                      <User className="h-4 w-4 text-indigo-600" />
+                      <span>{user?.name?.split(" ")[0]}</span>
+                    </Button>
+                  </Link>
+                </>
+              ) : (
+                <Link href="/profile">
+                  <Button variant="outline" className="h-10 px-4 gap-2 font-semibold text-gray-700 hover:bg-slate-50 border-gray-200 rounded-xl transition-colors">
+                    <User className="h-4 w-4 text-indigo-600" />
+                    <span>{user?.name?.split(" ")[0]}</span>
+                  </Button>
+                </Link>
+              )}
+              
               <Button
                 variant="ghost"
                 onClick={() => clear()}

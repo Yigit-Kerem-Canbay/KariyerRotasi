@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginationQueryDto } from '../applications/dto/pagination-query.dto';
+import { VectorUtils } from '../jobs/vector-utils';
 
 @Injectable()
 export class SavedJobsService {
@@ -10,10 +11,15 @@ export class SavedJobsService {
     const job = await this.prisma.job.findUnique({ where: { id: jobId } });
     if (!job) throw new NotFoundException('İlan bulunamadı.');
 
-    await this.prisma.savedJob.upsert({
+    const savedJob = await this.prisma.savedJob.upsert({
       where: { userId_jobId: { userId, jobId } },
       create: { userId, jobId },
       update: {},
+    });
+
+    // Update Behavioral Embedding in background (Weight: 1.0 for Save)
+    VectorUtils.trackInteraction(this.prisma, userId, jobId, 1.0).catch(err => {
+      console.error('Behavioral embedding error during save:', err);
     });
 
     return { saved: true };
@@ -38,13 +44,19 @@ export class SavedJobsService {
         take: limit,
         include: {
           job: {
-            select: {
-              id: true,
-              title: true,
-              location: true,
-              salaryMin: true,
-              salaryMax: true,
-              company: { select: { id: true, name: true } },
+            include: {
+              company: {
+                select: {
+                  id: true,
+                  name: true,
+                  logoUrl: true,
+                  sector: true,
+                },
+              },
+              jobSkills: {
+                include: { skill: true },
+                take: 5,
+              },
             },
           },
         },

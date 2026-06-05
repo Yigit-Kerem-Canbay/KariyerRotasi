@@ -47,6 +47,7 @@ export class CompaniesService {
 
   async findTop(limit = 6) {
     return this.prisma.company.findMany({
+      where: { website: { not: null } },
       select: {
         id: true,
         name: true,

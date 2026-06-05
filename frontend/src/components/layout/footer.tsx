@@ -7,12 +7,14 @@ export function Footer() {
       <div className="mx-auto max-w-[1200px] px-4">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-12 mb-16">
           <div className="md:col-span-4">
-            <Link href="/" className="inline-flex items-center gap-2 mb-6 outline-none">
-              <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shadow-md">
-                <Briefcase className="text-white w-4 h-4" />
-              </div>
+            <Link href="/" className="inline-flex items-center gap-3 mb-6 outline-none group">
+              <img 
+                src="/logo.png" 
+                alt="KariyerRotası Logo" 
+                className="h-[65px] w-auto object-contain drop-shadow-sm group-hover:scale-105 transition-transform origin-left" 
+              />
               <span className="font-extrabold tracking-tight text-xl text-gray-900">
-                kariyer<span className="text-indigo-600 font-medium tracking-normal">rotası</span>
+                Kariyer<span className="text-indigo-600 font-medium tracking-normal">Rotası</span>
               </span>
             </Link>
             <p className="text-sm text-gray-500 leading-relaxed max-w-xs mb-6">

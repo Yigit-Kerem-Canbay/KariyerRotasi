@@ -18,6 +18,9 @@ import {
   ChevronRight,
   CalendarDays,
   Share2,
+  Check,
+  AlertTriangle,
+  FileText,
 } from 'lucide-react';
 import {
   companyLogoSrc,
@@ -92,15 +95,20 @@ export default function JobDetailPage() {
   const token = useAuthStore((s) => s.token);
   const userRole = useAuthStore((s) => s.user?.role);
 
+  const userId = useAuthStore((s) => s.user?.id);
+
   const [job, setJob] = useState<any>(null);
   const [similarJobs, setSimilarJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [applied, setApplied] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
+  const [showApplyModal, setShowApplyModal] = useState(false);
 
   const [matchAnalysis, setMatchAnalysis] = useState<any>(null);
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
+
+  const isOwner = job?.company?.ownerId === userId;
 
   const refreshEngagement = useCallback(async (jobUuid: string) => {
     if (!token) {
@@ -249,9 +257,27 @@ export default function JobDetailPage() {
     try {
       await api.post('/applications', { jobId: job.id });
       setApplied(true);
+      setShowApplyModal(false);
     } catch (err: unknown) {
-      if (isAxiosError(err) && err.response?.status === 409) setApplied(true);
+      if (isAxiosError(err) && err.response?.status === 409) {
+        setApplied(true);
+        setShowApplyModal(false);
+      }
       else window.alert('Başvuru gönderilemedi.');
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const withdrawApply = async () => {
+    if (!job) return;
+    if (!confirm('Başvurunuzu geri çekmek istediğinize emin misiniz?')) return;
+    setActionBusy(true);
+    try {
+      await api.delete(`/applications/${job.id}`);
+      setApplied(false);
+    } catch (err) {
+      window.alert('Başvuru geri çekilemedi.');
     } finally {
       setActionBusy(false);
     }
@@ -310,32 +336,56 @@ export default function JobDetailPage() {
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
-                    disabled={actionBusy}
-                    aria-pressed={saved}
-                    onClick={() => void toggleSaved()}
-                    className={`w-12 h-12 rounded-2xl border flex items-center justify-center transition-all disabled:opacity-50 ${
-                      saved
-                        ? 'bg-rose-50 border-rose-200 text-rose-600'
-                        : 'bg-slate-50 border-slate-200 text-slate-400 hover:text-rose-500 hover:bg-rose-50'
-                    }`}
-                  >
-                    <Heart className={`w-6 h-6 ${saved ? 'fill-current' : ''}`} />
-                  </button>
-                  <button
-                    type="button"
+                    title="İlanı Paylaş"
                     onClick={() => void shareJob()}
                     className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 transition-all"
                   >
                     <Share2 className="w-6 h-6" />
                   </button>
-                  <button
-                    type="button"
-                    disabled={applied || actionBusy}
-                    onClick={() => void submitApply()}
-                    className="px-8 h-12 rounded-2xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:pointer-events-none text-white font-black shadow-lg shadow-indigo-600/20 transition-all"
-                  >
-                    {applied ? 'Başvuruldu' : 'Başvur'}
-                  </button>
+                  {isOwner ? (
+                    <Link
+                      href={`/employer/jobs/${job.id}/edit`}
+                      className="px-8 h-12 rounded-2xl bg-amber-50 text-amber-600 hover:bg-amber-100 hover:text-amber-700 font-black shadow-sm transition-all flex items-center justify-center border border-amber-200"
+                    >
+                      İlanı Düzenle
+                    </Link>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        title={saved ? "Favorilerden Çıkar" : "Favorilere Ekle"}
+                        disabled={actionBusy}
+                        aria-pressed={saved}
+                        onClick={() => void toggleSaved()}
+                        className={`w-12 h-12 rounded-2xl border flex items-center justify-center transition-all disabled:opacity-50 ${
+                          saved
+                            ? 'bg-rose-50 border-rose-200 text-rose-600'
+                            : 'bg-slate-50 border-slate-200 text-slate-400 hover:text-rose-500 hover:bg-rose-50'
+                        }`}
+                      >
+                        <Heart className={`w-6 h-6 ${saved ? 'fill-current' : ''}`} />
+                      </button>
+                      {applied ? (
+                        <button
+                          type="button"
+                          disabled={actionBusy}
+                          onClick={withdrawApply}
+                          className="px-8 h-12 rounded-2xl bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 disabled:opacity-60 font-black shadow-sm transition-all"
+                        >
+                          Başvuruyu Geri Çek
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={actionBusy}
+                          onClick={() => setShowApplyModal(true)}
+                          className="px-8 h-12 rounded-2xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:pointer-events-none text-white font-black shadow-lg shadow-indigo-600/20 transition-all"
+                        >
+                          Başvur
+                        </button>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -440,28 +490,36 @@ export default function JobDetailPage() {
                             %{matchAnalysis.algorithmicScore || 0}
                           </div>
                         </div>
-                        {matchAnalysis.matchDetails && (
-                          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-                            <div className="bg-black/20 rounded-xl p-3 text-center border border-white/5">
-                              <div className="text-xs font-bold text-indigo-300 mb-1 uppercase tracking-wider">Yetenek</div>
-                              <div className="text-lg font-black text-white">{matchAnalysis.matchDetails.skillScore} <span className="text-xs font-medium text-indigo-200/50">/ 45</span></div>
-                            </div>
-                            <div className="bg-black/20 rounded-xl p-3 text-center border border-white/5">
-                              <div className="text-xs font-bold text-indigo-300 mb-1 uppercase tracking-wider">Unvan</div>
-                              <div className="text-lg font-black text-white">{matchAnalysis.matchDetails.titleScore} <span className="text-xs font-medium text-indigo-200/50">/ 15</span></div>
-                            </div>
-                            <div className="bg-black/20 rounded-xl p-3 text-center border border-white/5">
-                              <div className="text-xs font-bold text-indigo-300 mb-1 uppercase tracking-wider">Konum</div>
-                              <div className="text-lg font-black text-white">{matchAnalysis.matchDetails.locationScore} <span className="text-xs font-medium text-indigo-200/50">/ 15</span></div>
-                            </div>
-                            <div className="bg-black/20 rounded-xl p-3 text-center border border-white/5">
-                              <div className="text-xs font-bold text-indigo-300 mb-1 uppercase tracking-wider">Çalışma Şekli</div>
-                              <div className="text-lg font-black text-white">{matchAnalysis.matchDetails.workModelScore} <span className="text-xs font-medium text-indigo-200/50">/ 15</span></div>
-                            </div>
-                            <div className="bg-black/20 rounded-xl p-3 text-center border border-white/5">
-                              <div className="text-xs font-bold text-indigo-300 mb-1 uppercase tracking-wider">Maaş</div>
-                              <div className="text-lg font-black text-white">{matchAnalysis.matchDetails.salaryScore} <span className="text-xs font-medium text-indigo-200/50">/ 10</span></div>
-                            </div>
+                        {matchAnalysis.matchDetails?.parameters && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                            {matchAnalysis.matchDetails.parameters.map((param: any, idx: number) => (
+                              <div key={idx} className="bg-black/20 rounded-xl p-4 border border-white/5 relative overflow-hidden">
+                                <div className="flex justify-between items-center mb-2">
+                                  <div className="text-sm font-bold text-indigo-200">{param.name}</div>
+                                  {param.status === 'known' && (
+                                    <div className="text-sm font-black text-white">{Math.round(param.score * 100)}%</div>
+                                  )}
+                                  {param.status === 'not_applicable' && (
+                                    <div className="text-xs font-bold text-slate-400">Şart Aranmıyor</div>
+                                  )}
+                                </div>
+                                {param.status === 'known' && (
+                                  <div className="w-full bg-white/10 rounded-full h-1.5 mb-1">
+                                    <div 
+                                      className={`h-1.5 rounded-full ${param.score > 0.7 ? 'bg-emerald-400' : param.score > 0.4 ? 'bg-amber-400' : 'bg-rose-400'}`}
+                                      style={{ width: `${Math.round(param.score * 100)}%` }}
+                                    ></div>
+                                  </div>
+                                )}
+                                {(param.status === 'missing_user' || param.status === 'missing_job') && (
+                                  <div className="mt-2 text-xs font-medium text-amber-300/80 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
+                                    <AlertTriangle className="w-3 h-3 inline mr-1" />
+                                    {param.note || 'Bilgi eksik olduğu için değerlendirilemedi.'}
+                                  </div>
+                                )}
+                                <div className="text-[10px] text-indigo-400/50 absolute bottom-1 right-2">Ağırlık: %{Math.round(param.weight * 100)}</div>
+                              </div>
+                            ))}
                           </div>
                         )}
                         <p className="text-white text-base leading-relaxed font-medium">
@@ -474,11 +532,16 @@ export default function JobDetailPage() {
                           <h3 className="text-emerald-400 font-bold mb-4 flex items-center gap-2">
                             <ShieldCheck className="w-5 h-5" /> Eşleşen Yetenekler
                           </h3>
-                          {matchAnalysis.matchedSkills?.length > 0 ? (
+                          {matchAnalysis.matchDetails?.matchedSkills?.length > 0 ? (
                             <div className="flex flex-wrap gap-2">
-                              {matchAnalysis.matchedSkills.map((skill: string, idx: number) => (
-                                <span key={idx} className="px-3 py-1.5 bg-emerald-500/20 text-emerald-300 rounded-lg text-sm font-bold border border-emerald-500/30">
-                                  {skill}
+                              {matchAnalysis.matchDetails.matchedSkills.map((ms: any, idx: number) => (
+                                <span key={idx} className="px-3 py-1.5 bg-emerald-500/20 text-emerald-300 rounded-lg text-sm font-bold border border-emerald-500/30 flex items-center gap-1">
+                                  {ms.name}
+                                  {ms.confidence > 0.5 && (
+                                    <span title="Kanıtlanmış Yetenek">
+                                      <Check className="w-3 h-3 text-emerald-400 ml-1" />
+                                    </span>
+                                  )}
                                 </span>
                               ))}
                             </div>
@@ -489,11 +552,11 @@ export default function JobDetailPage() {
 
                         <div className="bg-rose-950/30 border border-rose-500/20 rounded-2xl p-6 backdrop-blur-sm">
                           <h3 className="text-rose-400 font-bold mb-4 flex items-center gap-2">
-                            <TrendingUp className="w-5 h-5" /> Geliştirilebilir Alanlar
+                            <TrendingUp className="w-5 h-5" /> Eksik Yetenekler
                           </h3>
-                          {matchAnalysis.missingSkills?.length > 0 ? (
+                          {matchAnalysis.matchDetails?.missingSkills?.length > 0 ? (
                             <div className="flex flex-wrap gap-2">
-                              {matchAnalysis.missingSkills.map((skill: string, idx: number) => (
+                              {matchAnalysis.matchDetails.missingSkills.map((skill: string, idx: number) => (
                                 <span key={idx} className="px-3 py-1.5 bg-rose-500/20 text-rose-300 rounded-lg text-sm font-bold border border-rose-500/30">
                                   {skill}
                                 </span>
@@ -658,6 +721,38 @@ export default function JobDetailPage() {
         )}
 
       </div>
+
+      {/* Apply Modal */}
+      {showApplyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white rounded-[32px] p-8 max-w-md w-full shadow-2xl border border-slate-100 animate-in fade-in zoom-in duration-200">
+            <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mb-6 mx-auto">
+              <FileText className="w-8 h-8 text-indigo-600" />
+            </div>
+            <h3 className="text-2xl font-black text-slate-900 text-center mb-2">Başvuruyu Onayla</h3>
+            <p className="text-slate-500 text-center mb-8 font-medium">
+              Profilinizde yer alan tüm güncel bilgiler ve mevcut özgeçmişiniz bu ilana başvuru için gönderilecektir. Onaylıyor musunuz?
+            </p>
+            <div className="flex gap-4">
+              <button
+                type="button"
+                onClick={() => setShowApplyModal(false)}
+                className="flex-1 px-6 py-3.5 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-all"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                onClick={() => void submitApply()}
+                disabled={actionBusy}
+                className="flex-1 px-6 py-3.5 rounded-xl font-black text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 transition-all disabled:opacity-50"
+              >
+                {actionBusy ? 'Gönderiliyor...' : 'Evet, Başvur'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

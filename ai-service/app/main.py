@@ -57,3 +57,14 @@ async def analyze_match(req: MatchRequest):
         return {"success": True, "data": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+class EmbedRequest(BaseModel):
+    text: str
+
+@app.post("/embed")
+async def embed_text(req: EmbedRequest):
+    try:
+        from app.services.embedding_service import generate_embedding
+        vector = generate_embedding(req.text)
+        return {"success": True, "embedding": vector}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

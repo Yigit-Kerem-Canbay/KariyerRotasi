@@ -38,21 +38,11 @@ function getAvatarColor(name: string) {
 }
 
 const SECTOR_OPTIONS = [
-  'E-Ticaret',
-  'Eğitim',
-  'Finans & Bankacılık',
-  'Gıda & Restoran',
-  'İnşaat & Gayrimenkul',
-  'Lojistik & Taşıma',
-  'Otomotiv',
-  'Perakende',
-  'Sağlık',
-  'Savunma Sanayi',
-  'Teknoloji & Yazılım',
-  'Tekstil',
-  'Telekomünikasyon',
-  'Temizlik & Hizmet',
-  'Turizm',
+  "Teknoloji & Yazılım", "Gıda & Restoran", "Sağlık", "Perakende", 
+  "İnşaat & Gayrimenkul", "Eğitim", "Finans & Bankacılık", "Otomotiv", 
+  "Lojistik & Taşıma", "E-Ticaret", "Savunma Sanayi", "Turizm", "Tekstil",
+  "Telekomünikasyon", "Temizlik", "Güvenlik", "Enerji", "Medya & İletişim",
+  "Tarım & Hayvancılık", "Kozmetik"
 ].sort((a, b) => a.localeCompare(b, 'tr'));
 
 const EDUCATION_OPTIONS = ['Lise', 'Ön Lisans', 'Üniversite', 'Yüksek Lisans', 'Fark Etmez'].sort((a, b) =>

@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { VectorUtils } from './vector-utils';
+import { MatchEngine } from './match-engine';
 
 function parseMulti(value: unknown): string[] {
   if (value === undefined || value === null || value === '') return [];
@@ -78,6 +80,120 @@ function expandTurkishSearchVariants(input: string): string[] {
 @Injectable()
 export class JobsService {
   constructor(private prisma: PrismaService) {}
+
+  async createJob(userId: string, role: string, data: any) {
+    if (role !== 'individual_employer' && role !== 'corporate_employer') {
+      throw new Error('Only employers can create jobs');
+    }
+
+    let company = await this.prisma.company.findFirst({
+      where: { ownerId: userId }
+    });
+
+    if (!company) {
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      if (!user) throw new Error('User not found');
+      company = await this.prisma.company.create({
+        data: {
+          name: role === 'corporate_employer' ? data.companyName || user.name : user.name,
+          ownerId: userId,
+          isVerified: true
+        }
+      });
+    }
+
+    const job = await this.prisma.job.create({
+      data: {
+        title: data.title,
+        description: data.description,
+        location: data.location || 'Belirtilmemiş',
+        city: data.city,
+        companyId: company.id,
+        workModel: data.workModel || 'onsite',
+        salaryMin: data.salaryMin ? parseInt(data.salaryMin, 10) : null,
+        salaryMax: data.salaryMax ? parseInt(data.salaryMax, 10) : null,
+        currency: data.currency || 'TRY',
+        experienceYears: data.experienceYears,
+        educationLevel: data.educationLevel,
+        militaryStatus: data.militaryStatus,
+        language: data.language,
+        jobSkills: {
+          create: (data.skills || []).map((skillName: string) => ({
+            skill: {
+              connectOrCreate: {
+                where: { name: skillName },
+                create: { name: skillName }
+              }
+            }
+          }))
+        }
+      }
+    });
+
+    try {
+      const axios = require('axios');
+      await axios.post('http://localhost:8000/process-new-job', { job_id: job.id });
+    } catch (e: any) {
+      console.error('Failed to trigger job embedding:', e.message);
+    }
+
+    return { success: true, data: job };
+  }
+
+  async updateJob(id: string, userId: string, data: any) {
+    const job = await this.prisma.job.findUnique({
+      where: { id },
+      include: { company: true }
+    });
+
+    if (!job) throw new NotFoundException('İlan bulunamadı');
+    if (job.company.ownerId !== userId) {
+      throw new Error('You do not have permission to edit this job');
+    }
+
+    // Delete existing job skills
+    await this.prisma.jobSkill.deleteMany({
+      where: { jobId: id }
+    });
+
+    const updatedJob = await this.prisma.job.update({
+      where: { id },
+      data: {
+        title: data.title,
+        description: data.description,
+        location: data.location || 'Belirtilmemiş',
+        city: data.city,
+        workModel: data.workModel || 'onsite',
+        salaryMin: data.salaryMin ? parseInt(data.salaryMin, 10) : null,
+        salaryMax: data.salaryMax ? parseInt(data.salaryMax, 10) : null,
+        currency: data.currency || 'TRY',
+        experienceYears: data.experienceYears,
+        educationLevel: data.educationLevel,
+        militaryStatus: data.militaryStatus,
+        language: data.language,
+        jobSkills: {
+          create: (data.skills || []).map((skillName: string) => ({
+            skill: {
+              connectOrCreate: {
+                where: { name: skillName },
+                create: { name: skillName }
+              }
+            }
+          }))
+        }
+      }
+    });
+
+    try {
+      const axios = require('axios');
+      // Trigger python to process new job/re-upsert
+      await axios.post('http://localhost:8000/process-new-job', { job_id: job.id });
+    } catch (e: any) {
+      console.error('Failed to trigger job embedding:', e.message);
+    }
+
+    return { success: true, data: updatedJob };
+  }
 
   async findAll(query: Record<string, unknown>) {
     const page = Number(query.page) || 1;
@@ -257,9 +373,7 @@ export class JobsService {
     }
 
     let isRecommendedAI = false;
-    let userProfileData: any = null;
-    let userPrefData: any = null;
-    let userSkillsLower: string[] = [];
+    let currentUserObj: any = null;
 
     if (sort === 'recommended' && userId) {
       try {
@@ -268,21 +382,75 @@ export class JobsService {
           include: { 
             profile: true, 
             preferences: true, 
-            userSkills: { include: { skill: true } }
+            userSkills: { include: { skill: true } },
+            experience: true,
+            education: true,
+            projects: true,
+            certifications: true,
+            languages: true
           }
         });
         if (user) {
           isRecommendedAI = true;
-          userProfileData = user.profile;
-          userPrefData = user.preferences;
-          userSkillsLower = user.userSkills.map((us) => us.skill.name.toLowerCase());
+          currentUserObj = user;
         }
       } catch {
         // ignore
       }
     }
 
-    if (isRecommendedAI) {
+    if (isRecommendedAI && currentUserObj) {
+      // 1. Fetch User Profile Embedding & Behavioral Embedding
+      if (currentUserObj.profile?.id) {
+         try {
+           const pVec = await this.prisma.$queryRawUnsafe<any[]>(`SELECT embedding::text, behavioral_embedding::text, interaction_count FROM "user_profiles" WHERE id = '${currentUserObj.profile.id}'`);
+           if (pVec && pVec.length > 0) {
+             const rawStatic = pVec[0].embedding;
+             const rawBehavior = pVec[0].behavioral_embedding;
+             const interactionCount = pVec[0].interaction_count || 0;
+
+             let staticWeight = 1.0;
+             let behaviorWeight = 0.0;
+
+             if (interactionCount < 20) {
+               staticWeight = 0.9; behaviorWeight = 0.1;
+             } else if (interactionCount < 100) {
+               staticWeight = 0.7; behaviorWeight = 0.3;
+             } else if (interactionCount < 500) {
+               staticWeight = 0.5; behaviorWeight = 0.5;
+             } else {
+               staticWeight = 0.4; behaviorWeight = 0.6;
+             }
+
+             const staticEmb = VectorUtils.parseVectorString(rawStatic);
+             const behaviorEmb = VectorUtils.parseVectorString(rawBehavior);
+
+             if (staticEmb && behaviorEmb) {
+                 const combined = VectorUtils.combineVectors(staticEmb, staticWeight, behaviorEmb, behaviorWeight);
+                 currentUserObj.profile._embedding = `[${combined.join(',')}]`;
+             } else if (staticEmb) {
+                 currentUserObj.profile._embedding = rawStatic;
+             } else if (behaviorEmb) {
+                 currentUserObj.profile._embedding = rawBehavior;
+             }
+           }
+         } catch(e) {
+           console.error("Failed to combine behavior embedding", e);
+         }
+      }
+      
+      // 2. Fetch User Skill Embeddings
+      try {
+         const skillIds = currentUserObj.userSkills.map((us: any) => us.skillId).filter(Boolean);
+         if (skillIds.length > 0) {
+           const sVecs = await this.prisma.$queryRawUnsafe<any[]>(`SELECT id, embedding::text FROM "skills" WHERE id IN ('${skillIds.join("','")}')`);
+           for (const us of currentUserObj.userSkills) {
+             const found = sVecs.find(v => v.id === us.skillId);
+             if (found && us.skill) us.skill._embedding = found.embedding;
+           }
+         }
+      } catch(e) {}
+
       const [allJobsForScoring, total] = await Promise.all([
         this.prisma.job.findMany({
           where,
@@ -298,109 +466,39 @@ export class JobsService {
         this.prisma.job.count({ where }),
       ]);
 
-      const scoredJobs = allJobsForScoring.map((job) => {
-        let matchDetails = {
-          skillScore: 0,
-          titleScore: 0,
-          locationScore: 0,
-          workModelScore: 0,
-          salaryScore: 0
-        };
-
-        // 1. Skill Match (Max 40 points)
-        const jobSkillNames = job.jobSkills.map((js) => js.skill.name.toLowerCase());
-        if (jobSkillNames.length > 0 && userSkillsLower.length > 0) {
-          let matches = 0;
-          jobSkillNames.forEach(js => {
-            if (userSkillsLower.some(us => us.includes(js) || js.includes(us))) matches++;
-          });
-          matchDetails.skillScore = Number(((matches / jobSkillNames.length) * 40).toFixed(1));
-        } else if (jobSkillNames.length === 0) {
-          matchDetails.skillScore = 20.0; // default points if job has no skills listed
-        }
-
-        // 2. Title Match (Max 15 points)
-        if (userProfileData?.title && job.title) {
-          const uTitle = userProfileData.title.toLowerCase();
-          const jTitle = job.title.toLowerCase();
-          if (jTitle.includes(uTitle) || uTitle.includes(jTitle)) {
-            matchDetails.titleScore = 15.0;
-          } else {
-            const uWords = uTitle.split(' ');
-            const matchCount = uWords.filter((w: string) => w.length > 2 && jTitle.includes(w)).length;
-            if (matchCount > 0) {
-              matchDetails.titleScore = Number(((matchCount / uWords.length) * 15).toFixed(1));
-            } else {
-              matchDetails.titleScore = 2.5;
+      // 3. Fetch Job and Job Skill Embeddings
+      try {
+         const jobIds = allJobsForScoring.map((j: any) => j.id);
+         if (jobIds.length > 0) {
+           const jVecs = await this.prisma.$queryRawUnsafe<any[]>(`SELECT id, embedding::text FROM "jobs" WHERE id IN ('${jobIds.join("','")}')`);
+           for (const j of allJobsForScoring) {
+             const found = jVecs.find(v => v.id === (j as any).id);
+             if (found) (j as any)._embedding = found.embedding;
+           }
+         }
+         
+         const jobSkillIds = new Set<string>();
+         allJobsForScoring.forEach((j: any) => j.jobSkills.forEach((js: any) => jobSkillIds.add(js.skillId)));
+         if (jobSkillIds.size > 0) {
+            const jsVecs = await this.prisma.$queryRawUnsafe<any[]>(`SELECT id, embedding::text FROM "skills" WHERE id IN ('${Array.from(jobSkillIds).join("','")}')`);
+            for (const j of allJobsForScoring) {
+               for (const js of (j as any).jobSkills) {
+                  const found = jsVecs.find(v => v.id === js.skillId);
+                  if (found && js.skill) js.skill._embedding = found.embedding;
+               }
             }
-          }
-        } else {
-           matchDetails.titleScore = 5.5; // neutral
-        }
+         }
+      } catch(e) { 
+        console.error("Embedding fetch error", e); 
+      }
 
-        // 3. Location Match (Max 15 points)
-        let locScore = 5.0;
-        if (job.workModel?.toLowerCase().includes('remote') || job.workModel?.toLowerCase().includes('uzaktan')) {
-          locScore = 15.0;
-        } else if (userPrefData?.preferredCities?.length > 0 && job.location) {
-          const jobCity = job.location.toLowerCase();
-          const wantsCity = userPrefData.preferredCities.some((c: string) => jobCity.includes(c.toLowerCase()));
-          if (wantsCity) locScore = 15.0;
-        } else if (userProfileData?.city && job.location) {
-          if (job.location.toLowerCase().includes(userProfileData.city.toLowerCase())) {
-            locScore = 15.0;
-          }
-        }
-        matchDetails.locationScore = locScore;
-
-        // 4. Work Model Match (Max 10 points)
-        let wmScore = 5.0;
-        if (userPrefData?.workModels?.length > 0 && job.workModel) {
-          const wantsModel = userPrefData.workModels.some((m: string) => job.workModel.toLowerCase().includes(m.toLowerCase()));
-          if (wantsModel) wmScore = 10.0;
-        } else {
-          wmScore = 7.0;
-        }
-        matchDetails.workModelScore = wmScore;
-
-        // 4.5 Working Hours Match (Max 10 points)
-        let whScore = 5.0;
-        const flexibleHourTags = ['Esnek / Belirlenmemiş', 'Esnek', 'Belirlenmemiş'];
-        const hasFlexibleJobHours = job.workingHours?.some(h => flexibleHourTags.includes(h));
-        
-        if (hasFlexibleJobHours) {
-          whScore = 10.0; // Automatically perfectly compatible if job is flexible
-        } else if (userPrefData?.preferredWorkingHours?.length > 0 && job.workingHours?.length > 0) {
-          const wantsHours = userPrefData.preferredWorkingHours.some((h: string) => job.workingHours.includes(h));
-          if (wantsHours) whScore = 10.0;
-          else whScore = 2.0;
-        } else {
-          whScore = 6.0; // neutral if no preference
-        }
-        (matchDetails as any).workingHoursScore = whScore;
-
-        // 5. Salary Match (Max 10 points)
-        let salScore = 5.5;
-        if (userPrefData?.salaryMin && job.salaryMax) {
-          if (job.salaryMax >= userPrefData.salaryMin) {
-            salScore = 10.0;
-          } else if (job.salaryMax >= userPrefData.salaryMin * 0.8) {
-            salScore = Number(((job.salaryMax / userPrefData.salaryMin) * 10).toFixed(1));
-          } else {
-            salScore = 2.5;
-          }
-        } else {
-          salScore = 7.0; // neutral when missing
-        }
-        matchDetails.salaryScore = salScore;
-
-        let score = matchDetails.skillScore + matchDetails.titleScore + matchDetails.locationScore + matchDetails.workModelScore + matchDetails.salaryScore + (matchDetails as any).workingHoursScore;
-        
-        // Add random fractional variation so scores look natural
-        const randomFraction = Math.random() * 2.5;
-        score = Math.min(100, Number((score + randomFraction).toFixed(1)));
-
-        return { ...job, matchScore: score, matchDetails };
+      const scoredJobs = allJobsForScoring.map((job) => {
+        const matchResult = MatchEngine.calculateFullMatch(currentUserObj, job);
+        return { 
+          ...job, 
+          matchScore: matchResult.overallScore, 
+          matchDetails: matchResult 
+        };
       });
 
       scoredJobs.sort((a: any, b: any) => {
@@ -463,7 +561,7 @@ export class JobsService {
     };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, userId?: string) {
     const job = await this.prisma.job.findUnique({
       where: { id },
       include: {
@@ -480,6 +578,13 @@ export class JobsService {
         data: { viewCount: { increment: 1 } } as any,
       })
       .catch(console.error);
+
+    if (userId) {
+      // Update Behavioral Embedding in background (Weight: 0.05 for View to prevent accidental clicks dominating)
+      VectorUtils.trackInteraction(this.prisma, userId, id, 0.05).catch(err => {
+        console.error('Behavioral embedding error during view:', err);
+      });
+    }
 
     return job;
   }
@@ -511,17 +616,9 @@ export class JobsService {
     let skillsParam = typeof query.skills === 'string' ? query.skills : '';
     let skills = parseMulti(skillsParam);
 
-    // If userId is provided and no explicit skills, fetch user's skills from DB
-    if (userId && skills.length === 0) {
-      try {
-        const userSkills = await this.prisma.userSkill.findMany({
-          where: { userId },
-          include: { skill: true },
-        });
-        skills = userSkills.map((us) => us.skill.name);
-      } catch {
-        // user not found or error — fall through
-      }
+    // If userId is provided, just forward to our advanced MatchEngine in findAll
+    if (userId) {
+      return this.findAll({ ...query, sort: 'recommended' });
     }
 
     if (skills.length === 0) {
@@ -754,6 +851,8 @@ export class JobsService {
         preferences: true,
         education: true,
         experience: true,
+        projects: true,
+        certifications: true,
         languages: true
       }
     });
@@ -795,85 +894,110 @@ export class JobsService {
         user_profile: userProfile
       });
 
-      // Calculate algorithmic score
-      let matchDetails = { skillScore: 0, titleScore: 0, locationScore: 0, workModelScore: 0, workingHoursScore: 0, salaryScore: 0 };
-      const jobSkillNames = job.jobSkills.map((js) => js.skill.name.toLowerCase());
-      const userSkillsLower = user.userSkills.map(us => us.skill.name.toLowerCase());
+      // Fetch User Embedding
+      if (user.profile?.id) {
+         try {
+           const pVec = await this.prisma.$queryRawUnsafe<any[]>(`SELECT embedding::text, behavioral_embedding::text, interaction_count FROM "user_profiles" WHERE id = '${user.profile.id}'`);
+           if (pVec && pVec.length > 0) {
+             const rawStatic = pVec[0].embedding;
+             const rawBehavior = pVec[0].behavioral_embedding;
+             const interactionCount = pVec[0].interaction_count || 0;
+             let staticWeight = 1.0;
+             let behaviorWeight = 0.0;
+             if (interactionCount < 20) { staticWeight = 0.9; behaviorWeight = 0.1; }
+             else if (interactionCount < 100) { staticWeight = 0.7; behaviorWeight = 0.3; }
+             else if (interactionCount < 500) { staticWeight = 0.5; behaviorWeight = 0.5; }
+             else { staticWeight = 0.4; behaviorWeight = 0.6; }
+             const staticEmb = VectorUtils.parseVectorString(rawStatic);
+             const behaviorEmb = VectorUtils.parseVectorString(rawBehavior);
+             if (staticEmb && behaviorEmb) {
+                 const combined = VectorUtils.combineVectors(staticEmb, staticWeight, behaviorEmb, behaviorWeight);
+                 (user as any).profile._embedding = `[${combined.join(',')}]`;
+             } else if (staticEmb) {
+                 (user as any).profile._embedding = rawStatic;
+             } else if (behaviorEmb) {
+                 (user as any).profile._embedding = rawBehavior;
+             }
+           }
+         } catch(e) {}
+      }
       
-      if (jobSkillNames.length > 0 && userSkillsLower.length > 0) {
-        let matches = 0;
-        jobSkillNames.forEach(js => {
-          if (userSkillsLower.some(us => us.includes(js) || js.includes(us))) matches++;
-        });
-        matchDetails.skillScore = Number(((matches / jobSkillNames.length) * 40).toFixed(1));
-      } else if (jobSkillNames.length === 0) {
-        matchDetails.skillScore = 20.0; 
-      }
+      // Fetch User Skill Embeddings
+      try {
+         const skillIds = user.userSkills.map((us: any) => us.skillId).filter(Boolean);
+         if (skillIds.length > 0) {
+           const sVecs = await this.prisma.$queryRawUnsafe<any[]>(`SELECT id, embedding::text FROM "skills" WHERE id IN ('${skillIds.join("','")}')`);
+           for (const us of user.userSkills) {
+             const found = sVecs.find(v => v.id === us.skillId);
+             if (found && us.skill) (us as any).skill._embedding = found.embedding;
+           }
+         }
+      } catch(e) {}
 
-      if ((user.profile as any)?.title && job.title) {
-        const uTitle = (user.profile as any).title.toLowerCase();
-        const jTitle = job.title.toLowerCase();
-        if (jTitle.includes(uTitle) || uTitle.includes(jTitle)) {
-          matchDetails.titleScore = 15.0;
-        } else {
-          const uWords = uTitle.split(' ');
-          const matchCount = uWords.filter((w: string) => w.length > 2 && jTitle.includes(w)).length;
-          if (matchCount > 0) matchDetails.titleScore = Number(((matchCount / uWords.length) * 15).toFixed(1));
-          else matchDetails.titleScore = 2.5;
-        }
-      } else matchDetails.titleScore = 5.5;
+      // Fetch Job Embedding
+      try {
+         const jVecs = await this.prisma.$queryRawUnsafe<any[]>(`SELECT id, embedding::text FROM "jobs" WHERE id = '${job.id}'`);
+         if (jVecs && jVecs.length > 0) {
+            (job as any)._embedding = jVecs[0].embedding;
+         }
+         
+         const jobSkillIds = new Set<string>();
+         job.jobSkills.forEach((js: any) => jobSkillIds.add(js.skillId));
+         if (jobSkillIds.size > 0) {
+            const jsVecs = await this.prisma.$queryRawUnsafe<any[]>(`SELECT id, embedding::text FROM "skills" WHERE id IN ('${Array.from(jobSkillIds).join("','")}')`);
+            for (const js of job.jobSkills) {
+               const found = jsVecs.find(v => v.id === js.skillId);
+               if (found && js.skill) (js as any).skill._embedding = found.embedding;
+            }
+         }
+      } catch(e) {}
 
-      let locScore = 5.0;
-      if (job.workModel?.toLowerCase().includes('remote') || job.workModel?.toLowerCase().includes('uzaktan')) locScore = 15.0;
-      else if (user.preferences?.preferredCities && user.preferences.preferredCities.length > 0 && job.location) {
-        const jobCity = job.location.toLowerCase();
-        const wantsCity = user.preferences.preferredCities.some((c: string) => jobCity.includes(c.toLowerCase()));
-        if (wantsCity) locScore = 15.0;
-      } else if (user.profile?.city && job.location) {
-        if (job.location.toLowerCase().includes(user.profile.city.toLowerCase())) locScore = 15.0;
-      }
-      matchDetails.locationScore = locScore;
-
-      let wmScore = 5.0;
-      if (user.preferences?.workModels && user.preferences.workModels.length > 0 && job.workModel) {
-        const wantsModel = user.preferences.workModels.some((m: string) => job.workModel?.toLowerCase().includes(m.toLowerCase()));
-        if (wantsModel) wmScore = 10.0;
-      } else wmScore = 7.0;
-      matchDetails.workModelScore = wmScore;
-
-      let whScore = 5.0;
-      const flexibleHourTags = ['Esnek / Belirlenmemiş', 'Esnek', 'Belirlenmemiş'];
-      const hasFlexibleJobHours = job.workingHours?.some(h => flexibleHourTags.includes(h));
-      if (hasFlexibleJobHours) {
-        whScore = 10.0;
-      } else if (user.preferences?.preferredWorkingHours && user.preferences.preferredWorkingHours.length > 0 && job.workingHours && job.workingHours.length > 0) {
-        const wantsHours = user.preferences.preferredWorkingHours.some((h: string) => job.workingHours.includes(h));
-        if (wantsHours) whScore = 10.0;
-        else whScore = 2.0;
-      } else whScore = 6.0;
-      matchDetails.workingHoursScore = whScore;
-
-      let salScore = 5.5;
-      if (user.preferences?.salaryMin && job.salaryMax) {
-        if (job.salaryMax >= user.preferences.salaryMin) salScore = 10.0;
-        else if (job.salaryMax >= user.preferences.salaryMin * 0.8) salScore = Number(((job.salaryMax / user.preferences.salaryMin) * 10).toFixed(1));
-        else salScore = 2.5;
-      } else salScore = 7.0;
-      matchDetails.salaryScore = salScore;
-
-      let algorithmicScore = matchDetails.skillScore + matchDetails.titleScore + matchDetails.locationScore + matchDetails.workModelScore + matchDetails.salaryScore + matchDetails.workingHoursScore;
-      algorithmicScore = Math.min(100, Number((algorithmicScore + Math.random() * 2.5).toFixed(1)));
+      // Calculate algorithmic score using the new MatchEngine
+      const matchResult = MatchEngine.calculateFullMatch(user, job);
 
       return {
         data: {
           ...(response.data.data || {}),
-          algorithmicScore,
-          matchDetails
+          algorithmicScore: matchResult.overallScore,
+          matchDetails: matchResult
         }
       };
     } catch (error) {
       console.error('Match analysis error:', error);
       throw new Error('Yapay zeka analizi yapılamadı.');
     }
+  }
+
+  async getEmployerJobs(employerId: string, query: any) {
+    const page = Number(query.page) || 1;
+    const limit = Math.min(Number(query.limit) || 20, 100);
+    const skip = (page - 1) * limit;
+
+    const [total, jobs] = await this.prisma.$transaction([
+      this.prisma.job.count({
+        where: { company: { ownerId: employerId } },
+      }),
+      this.prisma.job.findMany({
+        where: { company: { ownerId: employerId } },
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          _count: {
+            select: { applications: true }
+          }
+        }
+      })
+    ]);
+
+    return {
+      data: jobs,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      }
+    };
   }
 }
