@@ -16,11 +16,13 @@ import { Label } from "@/components/ui/Label";
 const schema = z.object({
   title: z.string().min(3, "İlan başlığı en az 3 karakter olmalı."),
   description: z.string().min(20, "İş tanımı en az 20 karakter olmalı."),
-  city: z.string().optional(),
+  cities: z.array(z.string()).optional(),
   location: z.string().optional(),
-  workModel: z.string().min(1, "Lütfen çalışma modelini seçin."),
+  workModel: z.string().optional(),
+  workingHours: z.array(z.string()).optional(),
   salaryMin: z.string().optional(),
   salaryMax: z.string().optional(),
+  hideSalary: z.boolean().optional(),
   currency: z.string().optional(),
   experienceYears: z.string().optional(),
   educationLevel: z.string().optional(),
@@ -39,12 +41,17 @@ export default function PostJobPage() {
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      workModel: "onsite",
-      currency: "TRY"
+      workModel: "",
+      workingHours: [],
+      currency: "TRY",
+      cities: [],
+      hideSalary: false
     }
   });
 
@@ -143,24 +150,131 @@ export default function PostJobPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="workModel" className="text-sm font-bold">Çalışma Modeli *</Label>
-                <select
-                  id="workModel"
-                  className="w-full h-10 px-3 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none text-sm bg-white"
-                  {...register("workModel")}
-                >
-                  <option value="onsite">Tam Zamanlı (Ofis)</option>
-                  <option value="remote">Uzaktan (Remote)</option>
-                  <option value="hybrid">Hibrit</option>
-                </select>
+                <Label className="text-sm font-bold">Çalışma Modeli * (Çoklu Seçim)</Label>
+                <div className="flex flex-wrap gap-3 mt-1">
+                  {[
+                    { id: "remote", label: "Uzaktan (Remote)" },
+                    { id: "onsite", label: "Yüz Yüze (Ofis)" },
+                    { id: "hybrid", label: "Hibrit" }
+                  ].map((wm) => (
+                    <label key={wm.id} className="flex items-center gap-2 cursor-pointer border px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors bg-white">
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4 text-indigo-600 rounded border-slate-300"
+                        checked={(watch("workModel") || "").includes(wm.id)}
+                        onChange={(e) => {
+                          const currentVal = watch("workModel") || "";
+                          let currentArr = currentVal ? currentVal.split(',').map(s=>s.trim()).filter(Boolean) : [];
+                          if (e.target.checked) {
+                            currentArr.push(wm.id);
+                          } else {
+                            currentArr = currentArr.filter(i => i !== wm.id);
+                          }
+                          setValue("workModel", currentArr.join(", "));
+                        }}
+                      />
+                      <span className="text-sm font-bold text-slate-700">{wm.label}</span>
+                    </label>
+                  ))}
+                </div>
+                {errors.workModel && <p className="text-xs text-red-500 font-medium">{errors.workModel.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="city" className="text-sm font-bold">Şehir</Label>
-                <Input
-                  id="city"
-                  placeholder="Örn: İstanbul"
-                  {...register("city")}
-                />
+                <div className="flex items-center justify-between mb-1">
+                  <Label className="text-sm font-bold">Şehirler (Opsiyonel)</Label>
+                  <button type="button" onClick={() => setValue("cities", ["Tüm Türkiye"])} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-1 rounded">
+                    Tüm Türkiye
+                  </button>
+                </div>
+                <select
+                  className="w-full h-10 px-3 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none text-sm bg-white mb-2"
+                  onChange={(e) => {
+                    const city = e.target.value;
+                    if (!city) return;
+                    const currentCities = watch("cities") || [];
+                    if (!currentCities.includes(city)) {
+                      setValue("cities", [...currentCities, city]);
+                    }
+                    e.target.value = "";
+                  }}
+                >
+                  <option value="">Şehir Seçin / Ekleyin...</option>
+                  <option value="Adana">Adana</option><option value="Adıyaman">Adıyaman</option><option value="Afyonkarahisar">Afyonkarahisar</option>
+                  <option value="Ağrı">Ağrı</option><option value="Amasya">Amasya</option><option value="Ankara">Ankara</option>
+                  <option value="Antalya">Antalya</option><option value="Artvin">Artvin</option><option value="Aydın">Aydın</option>
+                  <option value="Balıkesir">Balıkesir</option><option value="Bilecik">Bilecik</option><option value="Bingöl">Bingöl</option>
+                  <option value="Bitlis">Bitlis</option><option value="Bolu">Bolu</option><option value="Burdur">Burdur</option>
+                  <option value="Bursa">Bursa</option><option value="Çanakkale">Çanakkale</option><option value="Çankırı">Çankırı</option>
+                  <option value="Çorum">Çorum</option><option value="Denizli">Denizli</option><option value="Diyarbakır">Diyarbakır</option>
+                  <option value="Edirne">Edirne</option><option value="Elazığ">Elazığ</option><option value="Erzincan">Erzincan</option>
+                  <option value="Erzurum">Erzurum</option><option value="Eskişehir">Eskişehir</option><option value="Gaziantep">Gaziantep</option>
+                  <option value="Giresun">Giresun</option><option value="Gümüşhane">Gümüşhane</option><option value="Hakkari">Hakkari</option>
+                  <option value="Hatay">Hatay</option><option value="Isparta">Isparta</option><option value="Mersin">Mersin</option>
+                  <option value="İstanbul">İstanbul</option><option value="İzmir">İzmir</option><option value="Kars">Kars</option>
+                  <option value="Kastamonu">Kastamonu</option><option value="Kayseri">Kayseri</option><option value="Kırklareli">Kırklareli</option>
+                  <option value="Kırşehir">Kırşehir</option><option value="Kocaeli">Kocaeli</option><option value="Konya">Konya</option>
+                  <option value="Kütahya">Kütahya</option><option value="Malatya">Malatya</option><option value="Manisa">Manisa</option>
+                  <option value="Kahramanmaraş">Kahramanmaraş</option><option value="Mardin">Mardin</option><option value="Muğla">Muğla</option>
+                  <option value="Muş">Muş</option><option value="Nevşehir">Nevşehir</option><option value="Niğde">Niğde</option>
+                  <option value="Ordu">Ordu</option><option value="Rize">Rize</option><option value="Sakarya">Sakarya</option>
+                  <option value="Samsun">Samsun</option><option value="Siirt">Siirt</option><option value="Sinop">Sinop</option>
+                  <option value="Sivas">Sivas</option><option value="Tekirdağ">Tekirdağ</option><option value="Tokat">Tokat</option>
+                  <option value="Trabzon">Trabzon</option><option value="Tunceli">Tunceli</option><option value="Şanlıurfa">Şanlıurfa</option>
+                  <option value="Uşak">Uşak</option><option value="Van">Van</option><option value="Yozgat">Yozgat</option>
+                  <option value="Zonguldak">Zonguldak</option><option value="Aksaray">Aksaray</option><option value="Bayburt">Bayburt</option>
+                  <option value="Karaman">Karaman</option><option value="Kırıkkale">Kırıkkale</option><option value="Batman">Batman</option>
+                  <option value="Şırnak">Şırnak</option><option value="Bartın">Bartın</option><option value="Ardahan">Ardahan</option>
+                  <option value="Iğdır">Iğdır</option><option value="Yalova">Yalova</option><option value="Karabük">Karabük</option>
+                  <option value="Kilis">Kilis</option><option value="Osmaniye">Osmaniye</option><option value="Düzce">Düzce</option>
+                </select>
+                <div className="flex flex-wrap gap-2">
+                  {(watch("cities") || []).map((city: string) => (
+                    <div key={city} className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-bold border border-indigo-100">
+                      {city}
+                      <button type="button" className="text-indigo-400 hover:text-indigo-600" onClick={() => {
+                        const currentCities = watch("cities") || [];
+                        setValue("cities", currentCities.filter(c => c !== city));
+                      }}>
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label className="text-sm font-bold">Çalışma Saatleri (Opsiyonel)</Label>
+                <div className="flex gap-2 mb-2">
+                  <Input 
+                    id="workingHourInput"
+                    placeholder="Örn: Hafta Sonu, Yarı Zamanlı, 14:00-18:00 vb. (Yazıp Enter'a basın)" 
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const val = e.currentTarget.value.trim();
+                        if (val) {
+                          const currentArr = watch("workingHours") || [];
+                          if (!currentArr.includes(val)) {
+                            setValue("workingHours", [...currentArr, val]);
+                          }
+                          e.currentTarget.value = "";
+                        }
+                      }
+                    }}
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {(watch("workingHours") || []).map((hour: string) => (
+                    <div key={hour} className="flex items-center gap-1.5 px-3 py-1 bg-violet-50 text-violet-700 rounded-lg text-sm font-bold border border-violet-100">
+                      {hour}
+                      <button type="button" className="text-violet-400 hover:text-violet-600" onClick={() => {
+                        const currentArr = watch("workingHours") || [];
+                        setValue("workingHours", currentArr.filter(h => h !== hour));
+                      }}>
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="location" className="text-sm font-bold">Açık Adres (Opsiyonel)</Label>
@@ -268,6 +382,12 @@ export default function PostJobPage() {
                   <option value="USD">USD ($)</option>
                   <option value="EUR">EUR (€)</option>
                 </select>
+              </div>
+              <div className="space-y-2 sm:col-span-3 mt-1">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" {...register("hideSalary")} />
+                  <span className="text-sm font-bold text-slate-700">Maaş bilgisini adaylardan gizle</span>
+                </label>
               </div>
             </div>
           </div>

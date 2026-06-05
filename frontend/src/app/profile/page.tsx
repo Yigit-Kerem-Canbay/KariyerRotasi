@@ -191,9 +191,28 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!hasHydrated) return;
-    if (!token) { router.push("/login"); }
-    else { fetchProfile(); }
-  }, [token, router, hasHydrated, fetchProfile]);
+    if (!token) { 
+      router.push("/login"); 
+    } else if (user?.role === 'corporate_employer' || user?.role === 'individual_employer') {
+      const fetchCompanyAndRedirect = async () => {
+        try {
+          const res = await fetch("http://localhost:4000/api/companies");
+          const data = await res.json();
+          const myCompany = data.find((c: any) => c.ownerId === user.id);
+          if (myCompany) {
+            router.push(`/company/${myCompany.id}`);
+          } else {
+            router.push("/employer/jobs");
+          }
+        } catch {
+          router.push("/employer/jobs");
+        }
+      };
+      fetchCompanyAndRedirect();
+    } else { 
+      fetchProfile(); 
+    }
+  }, [token, router, hasHydrated, fetchProfile, user?.role, user?.id]);
 
   // =================================================================
   // HANDLERS
@@ -416,7 +435,20 @@ export default function ProfilePage() {
   };
 
   // =================================================================
-  // LOADING STATE
+  // RENDER: EMPLOYER REDIRECT GUARD
+  // =================================================================
+  if (user?.role === 'corporate_employer' || user?.role === 'individual_employer') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
+        <div className="w-16 h-16 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+        <h2 className="text-xl font-black text-slate-800">Şirket Profilinize Yönlendiriliyorsunuz...</h2>
+        <p className="text-slate-500 font-medium mt-2">Lütfen bekleyin...</p>
+      </div>
+    );
+  }
+
+  // =================================================================
+  // RENDER: LOADING STATE (JOB SEEKER)
   // =================================================================
   if (!user || loading) {
     return (
@@ -1191,12 +1223,139 @@ export default function ProfilePage() {
                   <option value="TRY">₺ TRY</option><option value="USD">$ USD</option><option value="EUR">€ EUR</option>
                 </select></div>
             </div>
-            <div><label className="block text-xs md:text-sm font-bold text-slate-500 uppercase mb-1">Çalışma Şekli (virgülle ayırın)</label>
-              <input type="text" value={prefForm.workModels} onChange={e => setPrefForm({...prefForm, workModels: e.target.value})} className="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm focus:border-indigo-500 outline-none" placeholder="remote, hybrid, onsite" /></div>
-            <div><label className="block text-xs md:text-sm font-bold text-slate-500 uppercase mb-1">Tercih Edilen Şehirler (virgülle ayırın)</label>
-              <input type="text" value={prefForm.preferredCities} onChange={e => setPrefForm({...prefForm, preferredCities: e.target.value})} className="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm focus:border-indigo-500 outline-none" placeholder="İstanbul, Ankara" /></div>
-            <div><label className="block text-xs md:text-sm font-bold text-slate-500 uppercase mb-1">Çalışma Saatleri (virgülle ayırın)</label>
-              <input type="text" value={prefForm.preferredWorkingHours} onChange={e => setPrefForm({...prefForm, preferredWorkingHours: e.target.value})} className="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm focus:border-indigo-500 outline-none" placeholder="09:00 - 17:00, Esnek" /></div>
+            <div>
+              <label className="block text-xs md:text-sm font-bold text-slate-500 uppercase mb-1">Çalışma Şekli (Çoklu Seçim)</label>
+              <div className="flex flex-wrap gap-3">
+                {[
+                  { id: "remote", label: "Uzaktan (Remote)" },
+                  { id: "onsite", label: "Yüz Yüze (Onsite)" },
+                  { id: "hybrid", label: "Hibrit (Hybrid)" }
+                ].map((wm) => (
+                  <label key={wm.id} className="flex items-center gap-2 cursor-pointer border px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors">
+                    <input 
+                      type="checkbox" 
+                      className="w-4 h-4 text-indigo-600 rounded border-slate-300"
+                      checked={(prefForm.workModels || "").includes(wm.id)}
+                      onChange={(e) => {
+                        const currentArr = prefForm.workModels ? prefForm.workModels.split(',').map(s=>s.trim()).filter(Boolean) : [];
+                        if (e.target.checked) {
+                          setPrefForm({...prefForm, workModels: [...currentArr, wm.id].join(", ")});
+                        } else {
+                          setPrefForm({...prefForm, workModels: currentArr.filter(i => i !== wm.id).join(", ")});
+                        }
+                      }}
+                    />
+                    <span className="text-sm font-bold text-slate-700">{wm.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs md:text-sm font-bold text-slate-500 uppercase mb-1">Tercih Edilen Şehirler (Birden fazla seçebilirsiniz)</label>
+              <select 
+                className="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm focus:border-indigo-500 outline-none mb-2"
+                onChange={(e) => {
+                  const city = e.target.value;
+                  if (!city) return;
+                  const currentArr = prefForm.preferredCities ? prefForm.preferredCities.split(',').map(s=>s.trim()).filter(Boolean) : [];
+                  if (!currentArr.includes(city)) {
+                    setPrefForm({...prefForm, preferredCities: [...currentArr, city].join(", ")});
+                  }
+                  e.target.value = "";
+                }}
+              >
+                <option value="">Şehir Seçin / Ekleyin...</option>
+                <option value="Adana">Adana</option><option value="Adıyaman">Adıyaman</option><option value="Afyonkarahisar">Afyonkarahisar</option>
+                <option value="Ağrı">Ağrı</option><option value="Amasya">Amasya</option><option value="Ankara">Ankara</option>
+                <option value="Antalya">Antalya</option><option value="Artvin">Artvin</option><option value="Aydın">Aydın</option>
+                <option value="Balıkesir">Balıkesir</option><option value="Bilecik">Bilecik</option><option value="Bingöl">Bingöl</option>
+                <option value="Bitlis">Bitlis</option><option value="Bolu">Bolu</option><option value="Burdur">Burdur</option>
+                <option value="Bursa">Bursa</option><option value="Çanakkale">Çanakkale</option><option value="Çankırı">Çankırı</option>
+                <option value="Çorum">Çorum</option><option value="Denizli">Denizli</option><option value="Diyarbakır">Diyarbakır</option>
+                <option value="Edirne">Edirne</option><option value="Elazığ">Elazığ</option><option value="Erzincan">Erzincan</option>
+                <option value="Erzurum">Erzurum</option><option value="Eskişehir">Eskişehir</option><option value="Gaziantep">Gaziantep</option>
+                <option value="Giresun">Giresun</option><option value="Gümüşhane">Gümüşhane</option><option value="Hakkari">Hakkari</option>
+                <option value="Hatay">Hatay</option><option value="Isparta">Isparta</option><option value="Mersin">Mersin</option>
+                <option value="İstanbul">İstanbul</option><option value="İzmir">İzmir</option><option value="Kars">Kars</option>
+                <option value="Kastamonu">Kastamonu</option><option value="Kayseri">Kayseri</option><option value="Kırklareli">Kırklareli</option>
+                <option value="Kırşehir">Kırşehir</option><option value="Kocaeli">Kocaeli</option><option value="Konya">Konya</option>
+                <option value="Kütahya">Kütahya</option><option value="Malatya">Malatya</option><option value="Manisa">Manisa</option>
+                <option value="Kahramanmaraş">Kahramanmaraş</option><option value="Mardin">Mardin</option><option value="Muğla">Muğla</option>
+                <option value="Muş">Muş</option><option value="Nevşehir">Nevşehir</option><option value="Niğde">Niğde</option>
+                <option value="Ordu">Ordu</option><option value="Rize">Rize</option><option value="Sakarya">Sakarya</option>
+                <option value="Samsun">Samsun</option><option value="Siirt">Siirt</option><option value="Sinop">Sinop</option>
+                <option value="Sivas">Sivas</option><option value="Tekirdağ">Tekirdağ</option><option value="Tokat">Tokat</option>
+                <option value="Trabzon">Trabzon</option><option value="Tunceli">Tunceli</option><option value="Şanlıurfa">Şanlıurfa</option>
+                <option value="Uşak">Uşak</option><option value="Van">Van</option><option value="Yozgat">Yozgat</option>
+                <option value="Zonguldak">Zonguldak</option><option value="Aksaray">Aksaray</option><option value="Bayburt">Bayburt</option>
+                <option value="Karaman">Karaman</option><option value="Kırıkkale">Kırıkkale</option><option value="Batman">Batman</option>
+                <option value="Şırnak">Şırnak</option><option value="Bartın">Bartın</option><option value="Ardahan">Ardahan</option>
+                <option value="Iğdır">Iğdır</option><option value="Yalova">Yalova</option><option value="Karabük">Karabük</option>
+                <option value="Kilis">Kilis</option><option value="Osmaniye">Osmaniye</option><option value="Düzce">Düzce</option>
+              </select>
+              <div className="flex flex-wrap gap-2">
+                {(prefForm.preferredCities ? prefForm.preferredCities.split(',').map(s=>s.trim()).filter(Boolean) : []).map(city => (
+                  <div key={city} className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-bold border border-indigo-100">
+                    {city}
+                    <button type="button" className="text-indigo-400 hover:text-indigo-600" onClick={() => {
+                      const currentArr = prefForm.preferredCities.split(',').map(s=>s.trim()).filter(Boolean);
+                      setPrefForm({...prefForm, preferredCities: currentArr.filter(c => c !== city).join(", ")});
+                    }}>
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs md:text-sm font-bold text-slate-500 uppercase mb-1">Çalışma Saatleri (İstediğiniz kadar ekleyebilirsiniz)</label>
+              <div className="flex gap-2 mb-2">
+                <input 
+                  type="text" 
+                  id="workingHourInput"
+                  className="flex-1 px-4 py-3 rounded-lg border border-slate-200 text-sm focus:border-indigo-500 outline-none" 
+                  placeholder="Örn: Hafta Sonu, Yarı Zamanlı, 14:00-18:00 vb." 
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const val = e.currentTarget.value.trim();
+                      if (!val) return;
+                      const currentArr = prefForm.preferredWorkingHours ? prefForm.preferredWorkingHours.split(',').map(s=>s.trim()).filter(Boolean) : [];
+                      if (!currentArr.includes(val)) {
+                        setPrefForm({...prefForm, preferredWorkingHours: [...currentArr, val].join(", ")});
+                      }
+                      e.currentTarget.value = "";
+                    }
+                  }}
+                />
+                <button type="button" className="px-4 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold rounded-lg text-sm transition-colors"
+                  onClick={() => {
+                    const input = document.getElementById('workingHourInput') as HTMLInputElement;
+                    const val = input.value.trim();
+                    if (!val) return;
+                    const currentArr = prefForm.preferredWorkingHours ? prefForm.preferredWorkingHours.split(',').map(s=>s.trim()).filter(Boolean) : [];
+                    if (!currentArr.includes(val)) {
+                      setPrefForm({...prefForm, preferredWorkingHours: [...currentArr, val].join(", ")});
+                    }
+                    input.value = "";
+                  }}>Ekle</button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(prefForm.preferredWorkingHours ? prefForm.preferredWorkingHours.split(',').map(s=>s.trim()).filter(Boolean) : []).map(hour => (
+                  <div key={hour} className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 rounded-lg text-sm font-bold border border-amber-100">
+                    {hour}
+                    <button type="button" className="text-amber-400 hover:text-amber-600" onClick={() => {
+                      const currentArr = prefForm.preferredWorkingHours.split(',').map(s=>s.trim()).filter(Boolean);
+                      setPrefForm({...prefForm, preferredWorkingHours: currentArr.filter(h => h !== hour).join(", ")});
+                    }}>
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
             <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
               <button type="button" onClick={() => setEditModal(null)} className="px-4 py-2 text-xs font-bold text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">İptal</button>
               <button type="submit" className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors">Kaydet</button>

@@ -226,22 +226,32 @@ export class MatchEngine {
     }
 
     // 5. Location
-    if (job.workModel?.toLowerCase().includes('remote') || job.workModel?.toLowerCase().includes('uzaktan')) {
-      params.push({ name: 'Lokasyon', score: 1.0, weight: weights.location, status: 'known' });
-    } else if (job.location) {
-      if (user.profile?.city) {
-        const uCity = user.profile.city.toLowerCase();
-        const jLoc = job.location.toLowerCase();
-        let locScore = 0;
-        if (jLoc.includes(uCity) || uCity.includes(jLoc)) {
-          locScore = 1.0;
-        } else if (user.preferences?.preferredCities?.some((c: string) => jLoc.includes(c.toLowerCase()))) {
-          locScore = 1.0;
-        } else if (job.workModel?.toLowerCase().includes('hybrid') || job.workModel?.toLowerCase().includes('hibrit')) {
-          locScore = 0.35; // Different city but hybrid
-        } else {
-          locScore = 0.05; // Completely different city, onsite
-        }
+    const isRemote = job.remote || job.workModel?.toLowerCase().includes('remote') || job.workModel?.toLowerCase().includes('uzaktan');
+    if (isRemote) {
+      params.push({ name: 'Lokasyon', score: 1.0, weight: weights.location, status: 'known', note: 'Uzaktan çalışma imkanı var.' });
+    } else if ((job.cities && job.cities.length > 0) || job.location) {
+      const jobCities = (job.cities && job.cities.length > 0) ? job.cities.map((c: string) => c.toLowerCase()) : [job.location.toLowerCase()];
+      const userCity = user.profile?.city?.toLowerCase();
+      const userPrefCities = user.preferences?.preferredCities?.map((c: string) => c.toLowerCase()) || [];
+      
+      let locScore = 0;
+      let matched = false;
+
+      if (userCity && jobCities.some((jc: string) => jc.includes(userCity) || userCity.includes(jc))) {
+        matched = true;
+      } else if (userPrefCities.some((upc: string) => jobCities.some((jc: string) => jc.includes(upc) || upc.includes(jc)))) {
+        matched = true;
+      }
+
+      if (matched) {
+        locScore = 1.0;
+      } else if (job.workModel?.toLowerCase().includes('hybrid') || job.workModel?.toLowerCase().includes('hibrit')) {
+        locScore = 0.35; // Different city but hybrid
+      } else {
+        locScore = 0.05; // Completely different city, onsite
+      }
+      
+      if (userCity || userPrefCities.length > 0) {
         params.push({ name: 'Lokasyon', score: locScore, weight: weights.location, status: 'known' });
       } else {
         missingFields.push('Lokasyon');
@@ -252,7 +262,9 @@ export class MatchEngine {
     }
 
     // 6. Salary - Negotiability Zone
-    if (job.salaryMin && job.salaryMax) {
+    if (job.hideSalary) {
+      params.push({ name: 'Maaş', score: null, weight: weights.salary, status: 'not_applicable', note: 'İşveren maaş bilgisini gizli tutmayı tercih etmiş.' });
+    } else if (job.salaryMin && job.salaryMax) {
       if (user.preferences?.salaryMin && user.preferences?.salaryMax) {
         const uMin = user.preferences.salaryMin;
         const uMax = user.preferences.salaryMax;

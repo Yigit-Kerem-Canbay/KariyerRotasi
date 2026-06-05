@@ -106,12 +106,14 @@ export class JobsService {
       data: {
         title: data.title,
         description: data.description,
-        location: data.location || 'Belirtilmemiş',
+        location: (data.cities && data.cities.length > 0) ? data.cities.join(', ') : (data.location || 'Belirtilmemiş'),
         city: data.city,
+        cities: Array.isArray(data.cities) ? data.cities : [],
         companyId: company.id,
         workModel: data.workModel || 'onsite',
         salaryMin: data.salaryMin ? parseInt(data.salaryMin, 10) : null,
         salaryMax: data.salaryMax ? parseInt(data.salaryMax, 10) : null,
+        hideSalary: !!data.hideSalary,
         currency: data.currency || 'TRY',
         experienceYears: data.experienceYears,
         educationLevel: data.educationLevel,
@@ -132,7 +134,8 @@ export class JobsService {
 
     try {
       const axios = require('axios');
-      await axios.post('http://localhost:8000/process-new-job', { job_id: job.id });
+      const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+      await axios.post(`${aiServiceUrl}/process-new-job`, { job_id: job.id });
     } catch (e: any) {
       console.error('Failed to trigger job embedding:', e.message);
     }
@@ -161,11 +164,13 @@ export class JobsService {
       data: {
         title: data.title,
         description: data.description,
-        location: data.location || 'Belirtilmemiş',
+        location: (data.cities && data.cities.length > 0) ? data.cities.join(', ') : (data.location || 'Belirtilmemiş'),
         city: data.city,
+        cities: Array.isArray(data.cities) ? data.cities : [],
         workModel: data.workModel || 'onsite',
         salaryMin: data.salaryMin ? parseInt(data.salaryMin, 10) : null,
         salaryMax: data.salaryMax ? parseInt(data.salaryMax, 10) : null,
+        hideSalary: !!data.hideSalary,
         currency: data.currency || 'TRY',
         experienceYears: data.experienceYears,
         educationLevel: data.educationLevel,
@@ -186,8 +191,9 @@ export class JobsService {
 
     try {
       const axios = require('axios');
+      const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
       // Trigger python to process new job/re-upsert
-      await axios.post('http://localhost:8000/process-new-job', { job_id: job.id });
+      await axios.post(`${aiServiceUrl}/process-new-job`, { job_id: job.id });
     } catch (e: any) {
       console.error('Failed to trigger job embedding:', e.message);
     }
@@ -259,7 +265,10 @@ export class JobsService {
 
     if (cities.length > 0) {
       andParts.push({
-        city: { in: cities },
+        OR: [
+          { city: { in: cities } },
+          { cities: { hasSome: cities } }
+        ]
       });
     }
 
@@ -889,7 +898,8 @@ export class JobsService {
 
     try {
       const axios = require('axios');
-      const response = await axios.post('http://localhost:8000/analyze-match', {
+      const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+      const response = await axios.post(`${aiServiceUrl}/analyze-match`, {
         job_details: jobDetails,
         user_profile: userProfile
       });

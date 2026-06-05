@@ -123,9 +123,11 @@ model Job {
   company          Company  @relation(fields: [companyId], references: [id])
   location         String
   city             String?
+  cities           String[] @map("cities")
   district         String?
   salaryMin        Int?     @map("salary_min")
   salaryMax        Int?     @map("salary_max")
+  hideSalary       Boolean  @default(false) @map("hide_salary")
   currency         String   @default("TRY")
   workModel        String   @default("onsite") @map("work_model") // onsite, remote, hybrid
   educationLevel   String?  @map("education_level")

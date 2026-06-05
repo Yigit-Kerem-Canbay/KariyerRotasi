@@ -398,13 +398,20 @@ export default function JobDetailPage() {
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-xl text-sm font-bold text-slate-600">
                   <MapPin className="w-4 h-4" />
-                  {job.location}
+                  {job.cities && job.cities.length > 0 
+                    ? job.cities.join(', ') + (job.location ? ` - ${job.location}` : '')
+                    : [job.city, job.district].filter(Boolean).join(', ') || job.location}
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl text-sm font-bold">
                   <Briefcase className="w-4 h-4" />
                   {job.workModel === 'remote' ? 'Uzaktan' : job.workModel === 'hybrid' ? 'Hibrit' : 'İş Yerinde'}
                 </div>
-                {job.salaryMin && (
+                {job.hideSalary ? (
+                  <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-500 rounded-xl text-sm font-bold border border-slate-100">
+                    <Zap className="w-4 h-4" />
+                    Maaş Gizli
+                  </div>
+                ) : job.salaryMin && (
                   <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-sm font-bold border border-emerald-100">
                     <Zap className="w-4 h-4" />
                     {job.salaryMin.toLocaleString('tr-TR')} ₺ - {job.salaryMax?.toLocaleString('tr-TR')} ₺
@@ -585,7 +592,7 @@ export default function JobDetailPage() {
                   <h2 className="text-xl font-black text-white">Yapay Zeka Maaş Analizi</h2>
                 </div>
 
-                {job.salaryMin ? (
+                {job.salaryMin && !job.hideSalary ? (
                   <div className="space-y-6">
                     <p className="text-indigo-100 font-medium text-lg">
                       Sistemimizdeki 30.000+ ilan incelendiğinde, bu pozisyon için piyasa ortalaması 
@@ -607,7 +614,7 @@ export default function JobDetailPage() {
                   </div>
                 ) : (
                   <p className="text-indigo-100 font-medium text-lg">
-                    Bu ilan için maaş bilgisi paylaşılmamıştır (Mülakat Sonrası). Ancak benzer pozisyonlarda piyasa ortalaması genellikle 
+                    Bu ilan için maaş bilgisi paylaşılmamıştır (Gizli veya Mülakat Sonrası). Ancak benzer pozisyonlarda piyasa ortalaması genellikle 
                     <span className="font-black text-white mx-2">45.000 ₺ - 65.000 ₺</span> 
                     bandındadır.
                   </p>

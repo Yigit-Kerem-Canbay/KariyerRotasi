@@ -848,7 +848,9 @@ function JobsPageContent() {
                     <div className="flex flex-wrap gap-3">
                       <div className="flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">
                         <MapPin className="h-3.5 w-3.5 shrink-0" />
-                        {[job.city, job.district].filter(Boolean).join(' · ') || job.location}
+                        {job.cities && job.cities.length > 0
+                          ? `${job.cities[0]}${job.cities.length > 1 ? ` +${job.cities.length - 1}` : ''}`
+                          : [job.city, job.district].filter(Boolean).join(' · ') || job.location}
                       </div>
                       <div className="flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700">
                         <Briefcase className="h-3.5 w-3.5 shrink-0" />
@@ -868,7 +870,11 @@ function JobsPageContent() {
                           {job.workingHours[0]} {job.workingHours.length > 1 ? `+${job.workingHours.length - 1}` : ''}
                         </div>
                       ) : null}
-                      {job.salaryMin ? (
+                      {job.hideSalary ? (
+                        <div className="flex items-center gap-1 rounded-lg border border-slate-100 bg-slate-50/70 px-2.5 py-1.5 text-[11px] font-black text-slate-500">
+                          Maaş Gizli
+                        </div>
+                      ) : job.salaryMin ? (
                         <div className="flex items-center gap-1 rounded-lg border border-emerald-100 bg-emerald-50/70 px-2.5 py-1.5 text-[11px] font-black text-emerald-800">
                           {job.salaryMin.toLocaleString('tr-TR')} –{' '}
                           {job.salaryMax?.toLocaleString('tr-TR') ?? '—'} ₺
