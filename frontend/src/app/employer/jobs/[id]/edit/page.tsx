@@ -336,43 +336,66 @@ export default function EditJobPage() {
               Maaş Bilgisi (Opsiyonel)
             </h2>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="salaryMin" className="text-sm font-bold">Minimum</Label>
-                <Input
-                  id="salaryMin"
-                  type="number"
-                  placeholder="Örn: 30000"
-                  {...register("salaryMin")}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="salaryMax" className="text-sm font-bold">Maksimum</Label>
-                <Input
-                  id="salaryMax"
-                  type="number"
-                  placeholder="Örn: 50000"
-                  {...register("salaryMax")}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="currency" className="text-sm font-bold">Para Birimi</Label>
-                <select
-                  id="currency"
-                  className="w-full h-10 px-3 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none text-sm bg-white"
-                  {...register("currency")}
-                >
-                  <option value="TRY">TRY (₺)</option>
-                  <option value="USD">USD ($)</option>
-                  <option value="EUR">EUR (€)</option>
-                </select>
-              </div>
-              <div className="space-y-2 sm:col-span-3 mt-1">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" {...register("hideSalary")} />
-                  <span className="text-sm font-bold text-slate-700">Maaş bilgisini adaylardan gizle</span>
+            <div className="space-y-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <label className="flex items-center gap-2 cursor-pointer border p-3 rounded-xl hover:bg-slate-50 transition-colors bg-white flex-1">
+                  <input
+                    type="radio"
+                    className="w-4 h-4 text-indigo-600 border-slate-300 focus:ring-indigo-500"
+                    checked={!watch("hideSalary")}
+                    onChange={() => setValue("hideSalary", false)}
+                  />
+                  <span className="text-sm font-bold text-slate-700">Maaş Aralığı Belirt</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer border p-3 rounded-xl hover:bg-slate-50 transition-colors bg-white flex-1">
+                  <input
+                    type="radio"
+                    className="w-4 h-4 text-indigo-600 border-slate-300 focus:ring-indigo-500"
+                    checked={watch("hideSalary")}
+                    onChange={() => {
+                      setValue("hideSalary", true);
+                      setValue("salaryMin", "");
+                      setValue("salaryMax", "");
+                    }}
+                  />
+                  <span className="text-sm font-bold text-slate-700">İlk Aşamada Paylaşılmayacaktır</span>
                 </label>
               </div>
+
+              {!watch("hideSalary") && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="salaryMin" className="text-sm font-bold">Minimum</Label>
+                    <Input
+                      id="salaryMin"
+                      type="number"
+                      placeholder="Örn: 30000"
+                      {...register("salaryMin")}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="salaryMax" className="text-sm font-bold">Maksimum</Label>
+                    <Input
+                      id="salaryMax"
+                      type="number"
+                      placeholder="Örn: 50000"
+                      {...register("salaryMax")}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="currency" className="text-sm font-bold">Para Birimi</Label>
+                    <select
+                      id="currency"
+                      className="w-full h-10 px-3 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none text-sm bg-white"
+                      {...register("currency")}
+                    >
+                      <option value="TRY">TRY (₺)</option>
+                      <option value="USD">USD ($)</option>
+                      <option value="EUR">EUR (€)</option>
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

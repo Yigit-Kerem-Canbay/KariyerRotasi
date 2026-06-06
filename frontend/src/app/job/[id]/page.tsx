@@ -409,7 +409,7 @@ export default function JobDetailPage() {
                 {job.hideSalary ? (
                   <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-500 rounded-xl text-sm font-bold border border-slate-100">
                     <Zap className="w-4 h-4" />
-                    Maaş Gizli
+                    Maaş İlk Aşamada Paylaşılmayacaktır
                   </div>
                 ) : job.salaryMin && (
                   <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-sm font-bold border border-emerald-100">
@@ -497,6 +497,20 @@ export default function JobDetailPage() {
                             %{matchAnalysis.algorithmicScore || 0}
                           </div>
                         </div>
+                        
+                        {(matchAnalysis.matchDetails?.capabilityScore !== undefined || matchAnalysis.matchDetails?.desireScore !== undefined) && (
+                          <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div className="bg-black/20 rounded-xl p-4 border border-white/5">
+                              <div className="text-sm font-bold text-indigo-200 mb-1">Yetkinlik (Capability)</div>
+                              <div className="text-2xl font-black text-white">%{matchAnalysis.matchDetails.capabilityScore || 0}</div>
+                            </div>
+                            <div className="bg-black/20 rounded-xl p-4 border border-white/5">
+                              <div className="text-sm font-bold text-indigo-200 mb-1">İstek (Desire)</div>
+                              <div className="text-2xl font-black text-white">%{matchAnalysis.matchDetails.desireScore || 0}</div>
+                            </div>
+                          </div>
+                        )}
+
                         {matchAnalysis.matchDetails?.parameters && (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                             {matchAnalysis.matchDetails.parameters.map((param: any, idx: number) => (

@@ -13,6 +13,8 @@ export interface ParameterResult {
 
 export interface MatchResult {
   overallScore: number;
+  capabilityScore?: number;
+  desireScore?: number;
   parameters: ParameterResult[];
   missingFields: string[];
   recommendations: string[];
@@ -245,10 +247,8 @@ export class MatchEngine {
 
       if (matched) {
         locScore = 1.0;
-      } else if (job.workModel?.toLowerCase().includes('hybrid') || job.workModel?.toLowerCase().includes('hibrit')) {
-        locScore = 0.35; // Different city but hybrid
       } else {
-        locScore = 0.05; // Completely different city, onsite
+        locScore = 0.0; // Eşleşme yoksa %0 (Kesin filtre)
       }
       
       if (userCity || userPrefCities.length > 0) {
@@ -259,6 +259,38 @@ export class MatchEngine {
       }
     } else {
       params.push({ name: 'Lokasyon', score: null, weight: weights.location, status: 'missing_job' });
+    }
+
+    // 5.5. Work Model (Çalışma Şekli)
+    if (job.workModel) {
+      const jobModel = job.workModel.toLowerCase();
+      const userModels = user.preferences?.workModels?.map((m: string) => m.toLowerCase()) || [];
+      
+      if (userModels.length > 0) {
+        let wmScore = 0.0;
+        // Eğer jobModel userModels içinde varsa (veya remote/uzaktan gibi kelime eşleşmesi varsa) %100
+        const isWmMatch = userModels.some((um: string) => 
+           jobModel.includes(um) || um.includes(jobModel) ||
+           (jobModel === 'remote' && um === 'uzaktan') ||
+           (jobModel === 'uzaktan' && um === 'remote') ||
+           (jobModel === 'onsite' && um === 'ofisten') ||
+           (jobModel === 'ofisten' && um === 'onsite') ||
+           (jobModel === 'hybrid' && um === 'hibrit') ||
+           (jobModel === 'hibrit' && um === 'hybrid')
+        );
+
+        if (isWmMatch) {
+          wmScore = 1.0;
+        } else {
+          wmScore = 0.0;
+        }
+        params.push({ name: 'Çalışma Şekli', score: wmScore, weight: weights.workModel, status: 'known' });
+      } else {
+        missingFields.push('Çalışma Şekli Tercihi');
+        params.push({ name: 'Çalışma Şekli', score: null, weight: weights.workModel, status: 'missing_user' });
+      }
+    } else {
+       params.push({ name: 'Çalışma Şekli', score: null, weight: weights.workModel, status: 'missing_job' });
     }
 
     // 6. Salary - Negotiability Zone
@@ -335,13 +367,32 @@ export class MatchEngine {
       }
     }
 
-    return {
-      overallScore: Math.min(100, Math.max(0, overallScore)),
-      parameters: params,
-      missingFields,
-      recommendations,
-      matchedSkills: matchedSkillsOut,
-      missingSkills: missingSkillsOut
-    };
+      // Capability and Desire Breakdown
+      const capabilityParams = knownParams.filter(p => ['Yetenek Uyumu', 'Deneyim Uyumu', 'Eğitim', 'İçerik Eşleşmesi (AI)', 'İçerik Eşleşmesi'].includes(p.name));
+      let capabilityScore = 0;
+      if (capabilityParams.length > 0) {
+        const capWeight = capabilityParams.reduce((s, p) => s + p.weight, 0);
+        const capSum = capabilityParams.reduce((s, p) => s + ((p.score as number) * p.weight), 0);
+        capabilityScore = Math.round((capSum / capWeight) * 100);
+      }
+
+      const desireParams = knownParams.filter(p => ['Lokasyon', 'Çalışma Şekli', 'Maaş'].includes(p.name));
+      let desireScore = 0;
+      if (desireParams.length > 0) {
+        const desWeight = desireParams.reduce((s, p) => s + p.weight, 0);
+        const desSum = desireParams.reduce((s, p) => s + ((p.score as number) * p.weight), 0);
+        desireScore = Math.round((desSum / desWeight) * 100);
+      }
+
+      return {
+        overallScore: Math.min(100, Math.max(0, overallScore)),
+        capabilityScore: Math.min(100, Math.max(0, capabilityScore)),
+        desireScore: Math.min(100, Math.max(0, desireScore)),
+        parameters: params,
+        missingFields,
+        recommendations,
+        matchedSkills: matchedSkillsOut,
+        missingSkills: missingSkillsOut
+      };
   }
 }

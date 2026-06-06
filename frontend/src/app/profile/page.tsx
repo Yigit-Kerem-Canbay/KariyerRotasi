@@ -460,15 +460,18 @@ export default function ProfilePage() {
 
   const completionScore = user.profileCompletionScore;
 
+  const isEmployer = user.role === "corporate_employer" || user.role === "individual_employer";
   const tabs = [
     { id: "overview", label: "Genel Bakış", icon: User },
-    { id: "education", label: "Eğitim", icon: GraduationCap },
-    { id: "experience", label: "Deneyim", icon: Briefcase },
-    { id: "projects", label: "Projeler", icon: FolderKanban },
-    { id: "certifications", label: "Sertifikalar", icon: Award },
-    { id: "skills", label: "Yetenekler", icon: Sparkles },
-    { id: "languages", label: "Diller", icon: Languages },
-    { id: "preferences", label: "Tercihler", icon: Settings },
+    ...(isEmployer ? [] : [
+      { id: "education", label: "Eğitim", icon: GraduationCap },
+      { id: "experience", label: "Deneyim", icon: Briefcase },
+      { id: "projects", label: "Projeler", icon: FolderKanban },
+      { id: "certifications", label: "Sertifikalar", icon: Award },
+      { id: "skills", label: "Yetenekler", icon: Sparkles },
+      { id: "languages", label: "Diller", icon: Languages },
+      { id: "preferences", label: "Tercihler", icon: Settings },
+    ])
   ];
 
   // =================================================================
@@ -556,66 +559,70 @@ export default function ProfilePage() {
                 )}
               </div>
 
-              {/* CV Section */}
-              <div className="mt-6 pt-4 border-t border-slate-100">
-                <h3 className="text-xs font-bold text-slate-900 mb-2 flex items-center gap-1.5">
-                  <FileText className="w-3.5 h-3.5 text-indigo-500" /> Özgeçmiş (CV)
-                </h3>
-                {user.cvUrl ? (
-                  <div className="p-3 rounded-xl bg-gradient-to-br from-indigo-50 to-white border border-indigo-100">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center shrink-0">
-                        <FileText className="w-4 h-4" />
+              {/* CV Section and Applications */}
+              {!isEmployer && (
+                <>
+                  <div className="mt-6 pt-4 border-t border-slate-100">
+                    <h3 className="text-xs font-bold text-slate-900 mb-2 flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-indigo-500" /> Özgeçmiş (CV)
+                    </h3>
+                    {user.cvUrl ? (
+                      <div className="p-3 rounded-xl bg-gradient-to-br from-indigo-50 to-white border border-indigo-100">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center shrink-0">
+                            <FileText className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-slate-900 truncate">CV Yüklendi</p>
+                            <p className="text-xs md:text-sm text-slate-500">v{user.cvVersions?.[0]?.version || 1}</p>
+                          </div>
+                          <button onClick={handleDeleteCV} className="w-7 h-7 flex items-center justify-center rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="CV'yi Sil">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <a
+                          href={`${API_BASE}${user.cvUrl}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-2 w-full block text-center py-1.5 bg-white border border-indigo-100 rounded-lg text-xs md:text-sm font-bold text-indigo-600 hover:bg-indigo-50 transition-colors"
+                        >
+                          Görüntüle
+                        </a>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold text-slate-900 truncate">CV Yüklendi</p>
-                        <p className="text-xs md:text-sm text-slate-500">v{user.cvVersions?.[0]?.version || 1}</p>
+                    ) : (
+                      <div
+                        className={`group rounded-xl border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-slate-50 hover:bg-indigo-50/50 transition-all text-center p-4 cursor-pointer ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <input type="file" accept=".pdf" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
+                        <div className="w-10 h-12 bg-white rounded-lg shadow-sm flex items-center justify-center mx-auto mb-2 text-slate-400 group-hover:text-indigo-500 group-hover:scale-110 transition-transform">
+                          {uploading ? <div className="w-5 h-5 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div> : <Upload className="w-5 h-5" />}
+                        </div>
+                        <p className="text-xs font-bold text-slate-700">{uploading ? "AI Analiz Ediyor..." : "CV Yükle"}</p>
+                        <p className="text-xs md:text-sm text-slate-500 mt-0.5">{uploading ? "10-15 saniye sürebilir." : "PDF yükle, profili dolduralım!"}</p>
                       </div>
-                      <button onClick={handleDeleteCV} className="w-7 h-7 flex items-center justify-center rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="CV'yi Sil">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                    <a
-                      href={`${API_BASE}${user.cvUrl}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-2 w-full block text-center py-1.5 bg-white border border-indigo-100 rounded-lg text-xs md:text-sm font-bold text-indigo-600 hover:bg-indigo-50 transition-colors"
-                    >
-                      Görüntüle
-                    </a>
+                    )}
                   </div>
-                ) : (
-                  <div
-                    className={`group rounded-xl border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-slate-50 hover:bg-indigo-50/50 transition-all text-center p-4 cursor-pointer ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <input type="file" accept=".pdf" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
-                    <div className="w-10 h-12 bg-white rounded-lg shadow-sm flex items-center justify-center mx-auto mb-2 text-slate-400 group-hover:text-indigo-500 group-hover:scale-110 transition-transform">
-                      {uploading ? <div className="w-5 h-5 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div> : <Upload className="w-5 h-5" />}
-                    </div>
-                    <p className="text-xs font-bold text-slate-700">{uploading ? "AI Analiz Ediyor..." : "CV Yükle"}</p>
-                    <p className="text-xs md:text-sm text-slate-500 mt-0.5">{uploading ? "10-15 saniye sürebilir." : "PDF yükle, profili dolduralım!"}</p>
-                  </div>
-                )}
-              </div>
 
-              {/* Navigation Links for Applications and Saved Jobs */}
-              <div className="mt-6 pt-4 border-t border-slate-100 flex flex-col gap-2">
-                <Link href="/profile/applications" className="w-full flex items-center justify-between p-3 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors group">
-                  <div className="flex items-center gap-2">
-                    <Send className="w-4 h-4" />
-                    <span className="font-bold text-sm">Başvurularım</span>
+                  {/* Navigation Links for Applications and Saved Jobs */}
+                  <div className="mt-6 pt-4 border-t border-slate-100 flex flex-col gap-2">
+                    <Link href="/profile/applications" className="w-full flex items-center justify-between p-3 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors group">
+                      <div className="flex items-center gap-2">
+                        <Send className="w-4 h-4" />
+                        <span className="font-bold text-sm">Başvurularım</span>
+                      </div>
+                      <ExternalLink className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </Link>
+                    <Link href="/profile/saved-jobs" className="w-full flex items-center justify-between p-3 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 transition-colors group">
+                      <div className="flex items-center gap-2">
+                        <Heart className="w-4 h-4" />
+                        <span className="font-bold text-sm">Kaydedilen İlanlar</span>
+                      </div>
+                      <ExternalLink className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </Link>
                   </div>
-                  <ChevronDown className="w-4 h-4 -rotate-90 opacity-50 group-hover:opacity-100 transition-opacity" />
-                </Link>
-                <Link href="/profile/saved" className="w-full flex items-center justify-between p-3 rounded-xl bg-pink-50 text-pink-700 hover:bg-pink-100 transition-colors group">
-                  <div className="flex items-center gap-2">
-                    <Heart className="w-4 h-4" />
-                    <span className="font-bold text-sm">Favori İlanlarım</span>
-                  </div>
-                  <ChevronDown className="w-4 h-4 -rotate-90 opacity-50 group-hover:opacity-100 transition-opacity" />
-                </Link>
-              </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -1310,49 +1317,32 @@ export default function ProfilePage() {
             </div>
 
             <div>
-              <label className="block text-xs md:text-sm font-bold text-slate-500 uppercase mb-1">Çalışma Saatleri (İstediğiniz kadar ekleyebilirsiniz)</label>
-              <div className="flex gap-2 mb-2">
-                <input 
-                  type="text" 
-                  id="workingHourInput"
-                  className="flex-1 px-4 py-3 rounded-lg border border-slate-200 text-sm focus:border-indigo-500 outline-none" 
-                  placeholder="Örn: Hafta Sonu, Yarı Zamanlı, 14:00-18:00 vb." 
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      const val = e.currentTarget.value.trim();
-                      if (!val) return;
-                      const currentArr = prefForm.preferredWorkingHours ? prefForm.preferredWorkingHours.split(',').map(s=>s.trim()).filter(Boolean) : [];
-                      if (!currentArr.includes(val)) {
-                        setPrefForm({...prefForm, preferredWorkingHours: [...currentArr, val].join(", ")});
-                      }
-                      e.currentTarget.value = "";
-                    }
-                  }}
-                />
-                <button type="button" className="px-4 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold rounded-lg text-sm transition-colors"
-                  onClick={() => {
-                    const input = document.getElementById('workingHourInput') as HTMLInputElement;
-                    const val = input.value.trim();
-                    if (!val) return;
-                    const currentArr = prefForm.preferredWorkingHours ? prefForm.preferredWorkingHours.split(',').map(s=>s.trim()).filter(Boolean) : [];
-                    if (!currentArr.includes(val)) {
-                      setPrefForm({...prefForm, preferredWorkingHours: [...currentArr, val].join(", ")});
-                    }
-                    input.value = "";
-                  }}>Ekle</button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {(prefForm.preferredWorkingHours ? prefForm.preferredWorkingHours.split(',').map(s=>s.trim()).filter(Boolean) : []).map(hour => (
-                  <div key={hour} className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 rounded-lg text-sm font-bold border border-amber-100">
-                    {hour}
-                    <button type="button" className="text-amber-400 hover:text-amber-600" onClick={() => {
-                      const currentArr = prefForm.preferredWorkingHours.split(',').map(s=>s.trim()).filter(Boolean);
-                      setPrefForm({...prefForm, preferredWorkingHours: currentArr.filter(h => h !== hour).join(", ")});
-                    }}>
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
+              <label className="block text-xs md:text-sm font-bold text-slate-500 uppercase mb-1">Çalışma Saatleri (Çoklu Seçim)</label>
+              <div className="flex flex-wrap gap-3 mt-1">
+                {[
+                  { id: "Tam Zamanlı", label: "Tam Zamanlı" },
+                  { id: "Yarı Zamanlı", label: "Yarı Zamanlı" },
+                  { id: "Serbest Zamanlı", label: "Serbest Zamanlı" },
+                  { id: "Vardiyalı", label: "Vardiyalı" },
+                  { id: "Esnek Çalışma", label: "Esnek Çalışma" },
+                  { id: "Hafta Sonu", label: "Hafta Sonu" }
+                ].map((wh) => (
+                  <label key={wh.id} className="flex items-center gap-2 cursor-pointer border px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors">
+                    <input 
+                      type="checkbox" 
+                      className="w-4 h-4 text-indigo-600 rounded border-slate-300"
+                      checked={(prefForm.preferredWorkingHours || "").includes(wh.id)}
+                      onChange={(e) => {
+                        const currentArr = prefForm.preferredWorkingHours ? prefForm.preferredWorkingHours.split(',').map(s=>s.trim()).filter(Boolean) : [];
+                        if (e.target.checked) {
+                          setPrefForm({...prefForm, preferredWorkingHours: [...currentArr, wh.id].join(", ")});
+                        } else {
+                          setPrefForm({...prefForm, preferredWorkingHours: currentArr.filter(i => i !== wh.id).join(", ")});
+                        }
+                      }}
+                    />
+                    <span className="text-sm font-bold text-slate-700">{wh.label}</span>
+                  </label>
                 ))}
               </div>
             </div>

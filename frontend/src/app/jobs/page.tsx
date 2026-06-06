@@ -849,7 +849,7 @@ function JobsPageContent() {
                       <div className="flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">
                         <MapPin className="h-3.5 w-3.5 shrink-0" />
                         {job.cities && job.cities.length > 0
-                          ? `${job.cities[0]}${job.cities.length > 1 ? ` +${job.cities.length - 1}` : ''}`
+                          ? `${job.cities[0]}${job.cities.length > 1 ? ` ve ${job.cities.length - 1} diğer şehir` : ''}`
                           : [job.city, job.district].filter(Boolean).join(' · ') || job.location}
                       </div>
                       <div className="flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700">
@@ -872,7 +872,7 @@ function JobsPageContent() {
                       ) : null}
                       {job.hideSalary ? (
                         <div className="flex items-center gap-1 rounded-lg border border-slate-100 bg-slate-50/70 px-2.5 py-1.5 text-[11px] font-black text-slate-500">
-                          Maaş Gizli
+                          Maaş İlk Aşamada Paylaşılmayacaktır
                         </div>
                       ) : job.salaryMin ? (
                         <div className="flex items-center gap-1 rounded-lg border border-emerald-100 bg-emerald-50/70 px-2.5 py-1.5 text-[11px] font-black text-emerald-800">

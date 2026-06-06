@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useAuthStore } from "@/store/auth";
 import { Button } from "@/components/ui/Button";
-import { User, LogOut, ChevronDown, Briefcase } from "lucide-react";
+import { User, LogOut, ChevronDown, Briefcase, Plus } from "lucide-react";
 
 export function Navbar() {
   const { token, user, clear } = useAuthStore();
@@ -42,13 +42,18 @@ export function Navbar() {
             <div className="flex items-center gap-2">
               {(user?.role === 'individual_employer' || user?.role === 'corporate_employer') ? (
                 <>
-                  <Link href="/employer/post-job">
+                  <Link href="/employer/post-job" className="hidden sm:block">
                     <Button variant="outline" className="h-10 px-4 gap-2 font-semibold text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 rounded-xl transition-colors">
-                      <Briefcase className="h-4 w-4" />
+                      <Plus className="h-4 w-4" />
                       <span>İlan Ver</span>
                     </Button>
                   </Link>
-                  <Link href="/employer/jobs">
+                  <Link href="/employer/jobs" className="hidden md:block">
+                    <Button variant="ghost" className="h-10 px-3 font-semibold text-gray-600 hover:bg-gray-50 hover:text-indigo-600 rounded-xl transition-colors">
+                      İlanlarım
+                    </Button>
+                  </Link>
+                  <Link href="/profile">
                     <Button variant="outline" className="h-10 px-4 gap-2 font-semibold text-gray-700 hover:bg-slate-50 border-gray-200 rounded-xl transition-colors">
                       <User className="h-4 w-4 text-indigo-600" />
                       <span>{user?.name?.split(" ")[0]}</span>
