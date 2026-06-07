@@ -240,6 +240,15 @@ function SearchAutocomplete({ value, onChange, onSubmit }: {
   );
 }
 
+// ─── Format Location Helper ───
+const formatLocation = (loc: string | undefined | null) => {
+  if (!loc) return "";
+  const parts = loc.split(',').map(s => s.trim()).filter(Boolean);
+  if (parts.length === 81) return "Tüm Türkiye";
+  if (parts.length > 2) return `${parts.slice(0, 2).join(', ')} +${parts.length - 2}`;
+  return loc;
+};
+
 // ═══════════════════════════════════════════
 // ██ HOMEPAGE
 // ═══════════════════════════════════════════
@@ -562,7 +571,7 @@ export default function Home() {
                     )}
                     <div className="mt-auto pt-2">
                       <p className="text-gray-500 text-[13px] mb-1 font-medium line-clamp-1">{job.company?.name}</p>
-                      <p className="text-gray-400 text-xs flex items-center gap-1 font-medium"><MapPin className="w-3 h-3 text-indigo-400" /> {job.location}</p>
+                      <p className="text-gray-400 text-xs flex items-center gap-1 font-medium"><MapPin className="w-3 h-3 text-indigo-400" /> {formatLocation(job.location)}</p>
                     </div>
                   </Link>
                 );

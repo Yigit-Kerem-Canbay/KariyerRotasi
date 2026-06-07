@@ -123,6 +123,8 @@ export class UpdatePreferenceDto {
   @IsOptional() @IsArray() workModels?: string[];
   @IsOptional() @IsArray() preferredCities?: string[];
   @IsOptional() @IsArray() @IsString({ each: true }) preferredWorkingHours?: string[];
+  @IsOptional() preferredSchedule?: any;
+  @IsOptional() @IsArray() @IsString({ each: true }) employmentTypes?: string[];
 }
 
 // ==================== CV MERGE ====================

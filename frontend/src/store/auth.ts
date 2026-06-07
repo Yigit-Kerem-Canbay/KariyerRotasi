@@ -101,6 +101,8 @@ type UserPreference = {
   workModels: string[];
   preferredCities: string[];
   preferredWorkingHours: string[];
+  employmentTypes?: string[];
+  preferredSchedule?: any[];
 };
 
 type UserCV = {

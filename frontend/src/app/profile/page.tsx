@@ -5,14 +5,48 @@ import { api } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState, useRef, useCallback } from "react";
+import { WorkScheduleBuilder } from "@/components/ui/WorkScheduleBuilder";
+import { MultiSelectDropdown } from "@/components/ui/MultiSelectDropdown";
 import {
-  User, Mail, MapPin, Briefcase, GraduationCap,
+  User as UserIcon, Mail, MapPin, Briefcase, GraduationCap,
   Settings, FileText, Sparkles, Plus, Edit2,
   Phone, Globe, Calendar, Building, Trash2,
   Award, Book, FolderKanban, Languages, X,
   ChevronDown, Check, AlertTriangle, Eye, Upload,
   ExternalLink, Shield, Clock, Heart, Send
 } from "lucide-react";
+
+const TURKEY_CITIES = [
+  { id: 'Adana', label: 'Adana' }, { id: 'Adıyaman', label: 'Adıyaman' }, { id: 'Afyonkarahisar', label: 'Afyonkarahisar' },
+  { id: 'Ağrı', label: 'Ağrı' }, { id: 'Amasya', label: 'Amasya' }, { id: 'Ankara', label: 'Ankara' },
+  { id: 'Antalya', label: 'Antalya' }, { id: 'Artvin', label: 'Artvin' }, { id: 'Aydın', label: 'Aydın' },
+  { id: 'Balıkesir', label: 'Balıkesir' }, { id: 'Bilecik', label: 'Bilecik' }, { id: 'Bingöl', label: 'Bingöl' },
+  { id: 'Bitlis', label: 'Bitlis' }, { id: 'Bolu', label: 'Bolu' }, { id: 'Burdur', label: 'Burdur' },
+  { id: 'Bursa', label: 'Bursa' }, { id: 'Çanakkale', label: 'Çanakkale' }, { id: 'Çankırı', label: 'Çankırı' },
+  { id: 'Çorum', label: 'Çorum' }, { id: 'Denizli', label: 'Denizli' }, { id: 'Diyarbakır', label: 'Diyarbakır' },
+  { id: 'Edirne', label: 'Edirne' }, { id: 'Elazığ', label: 'Elazığ' }, { id: 'Erzincan', label: 'Erzincan' },
+  { id: 'Erzurum', label: 'Erzurum' }, { id: 'Eskişehir', label: 'Eskişehir' }, { id: 'Gaziantep', label: 'Gaziantep' },
+  { id: 'Giresun', label: 'Giresun' }, { id: 'Gümüşhane', label: 'Gümüşhane' }, { id: 'Hakkari', label: 'Hakkari' },
+  { id: 'Hatay', label: 'Hatay' }, { id: 'Isparta', label: 'Isparta' }, { id: 'Mersin', label: 'Mersin' },
+  { id: 'İstanbul', label: 'İstanbul' }, { id: 'İzmir', label: 'İzmir' }, { id: 'Kars', label: 'Kars' },
+  { id: 'Kastamonu', label: 'Kastamonu' }, { id: 'Kayseri', label: 'Kayseri' }, { id: 'Kırklareli', label: 'Kırklareli' },
+  { id: 'Kırşehir', label: 'Kırşehir' }, { id: 'Kocaeli', label: 'Kocaeli' }, { id: 'Konya', label: 'Konya' },
+  { id: 'Kütahya', label: 'Kütahya' }, { id: 'Malatya', label: 'Malatya' }, { id: 'Manisa', label: 'Manisa' },
+  { id: 'Kahramanmaraş', label: 'Kahramanmaraş' }, { id: 'Mardin', label: 'Mardin' }, { id: 'Muğla', label: 'Muğla' },
+  { id: 'Muş', label: 'Muş' }, { id: 'Nevşehir', label: 'Nevşehir' }, { id: 'Niğde', label: 'Niğde' },
+  { id: 'Ordu', label: 'Ordu' }, { id: 'Rize', label: 'Rize' }, { id: 'Sakarya', label: 'Sakarya' },
+  { id: 'Samsun', label: 'Samsun' }, { id: 'Siirt', label: 'Siirt' }, { id: 'Sinop', label: 'Sinop' },
+  { id: 'Sivas', label: 'Sivas' }, { id: 'Tekirdağ', label: 'Tekirdağ' }, { id: 'Tokat', label: 'Tokat' },
+  { id: 'Trabzon', label: 'Trabzon' }, { id: 'Tunceli', label: 'Tunceli' }, { id: 'Şanlıurfa', label: 'Şanlıurfa' },
+  { id: 'Uşak', label: 'Uşak' }, { id: 'Van', label: 'Van' }, { id: 'Yozgat', label: 'Yozgat' },
+  { id: 'Zonguldak', label: 'Zonguldak' }, { id: 'Aksaray', label: 'Aksaray' }, { id: 'Bayburt', label: 'Bayburt' },
+  { id: 'Karaman', label: 'Karaman' }, { id: 'Kırıkkale', label: 'Kırıkkale' }, { id: 'Batman', label: 'Batman' },
+  { id: 'Şırnak', label: 'Şırnak' }, { id: 'Bartın', label: 'Bartın' }, { id: 'Ardahan', label: 'Ardahan' },
+  { id: 'Iğdır', label: 'Iğdır' }, { id: 'Yalova', label: 'Yalova' }, { id: 'Karabük', label: 'Karabük' },
+  { id: 'Kilis', label: 'Kilis' }, { id: 'Osmaniye', label: 'Osmaniye' }, { id: 'Düzce', label: 'Düzce' }
+];
+
+import { EmployerProfileView } from "@/components/profile/EmployerProfileView";
 
 // =================================================================
 // TYPES
@@ -157,7 +191,7 @@ export default function ProfilePage() {
   const [certForm, setCertForm] = useState({ name: "", issuer: "", issueDate: "", expirationDate: "", credentialUrl: "" });
   const [langForm, setLangForm] = useState({ language: "", level: "" });
   const [skillForm, setSkillForm] = useState({ skillName: "" });
-  const [prefForm, setPrefForm] = useState({ salaryMin: "", salaryMax: "", currency: "TRY", workModels: "", preferredCities: "", preferredWorkingHours: "" });
+  const [prefForm, setPrefForm] = useState({ salaryMin: "", salaryMax: "", currency: "TRY", workModels: "", preferredCities: "", preferredWorkingHours: "", employmentTypes: "", preferredSchedule: [] as any[] });
   const [mainProfileForm, setMainProfileForm] = useState({
     name: "", title: "", phone: "", birthDate: "", gender: "", city: "", district: "",
     militaryStatus: "", driverLicense: "", linkedinUrl: "", githubUrl: "", portfolioUrl: ""
@@ -187,32 +221,19 @@ export default function ProfilePage() {
     }
   }, [setUser, router]);
 
-  useEffect(() => { setHasHydrated(true); }, []);
+  useEffect(() => { 
+    setHasHydrated(true); 
+    console.log("Profile page initialized!");
+  }, []);
 
   useEffect(() => {
     if (!hasHydrated) return;
     if (!token) { 
       router.push("/login"); 
-    } else if (user?.role === 'corporate_employer' || user?.role === 'individual_employer') {
-      const fetchCompanyAndRedirect = async () => {
-        try {
-          const res = await fetch("http://localhost:4000/api/companies");
-          const data = await res.json();
-          const myCompany = data.find((c: any) => c.ownerId === user.id);
-          if (myCompany) {
-            router.push(`/company/${myCompany.id}`);
-          } else {
-            router.push("/employer/jobs");
-          }
-        } catch {
-          router.push("/employer/jobs");
-        }
-      };
-      fetchCompanyAndRedirect();
     } else { 
       fetchProfile(); 
     }
-  }, [token, router, hasHydrated, fetchProfile, user?.role, user?.id]);
+  }, [token, router, hasHydrated, fetchProfile]);
 
   // =================================================================
   // HANDLERS
@@ -409,6 +430,8 @@ export default function ProfilePage() {
         workModels: prefForm.workModels ? prefForm.workModels.split(",").map(s => s.trim()) : [],
         preferredCities: prefForm.preferredCities ? prefForm.preferredCities.split(",").map(s => s.trim()) : [],
         preferredWorkingHours: prefForm.preferredWorkingHours ? prefForm.preferredWorkingHours.split(",").map(s => s.trim()) : [],
+        employmentTypes: prefForm.employmentTypes ? prefForm.employmentTypes.split(",").map(s => s.trim()).filter(Boolean) : [],
+        preferredSchedule: prefForm.preferredSchedule || [],
       };
       const res = await api.patch("/users/me/preferences", payload);
       setUser(res.data);
@@ -435,16 +458,10 @@ export default function ProfilePage() {
   };
 
   // =================================================================
-  // RENDER: EMPLOYER REDIRECT GUARD
+  // RENDER: EMPLOYER PROFILE
   // =================================================================
   if (user?.role === 'corporate_employer' || user?.role === 'individual_employer') {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
-        <div className="w-16 h-16 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
-        <h2 className="text-xl font-black text-slate-800">Şirket Profilinize Yönlendiriliyorsunuz...</h2>
-        <p className="text-slate-500 font-medium mt-2">Lütfen bekleyin...</p>
-      </div>
-    );
+    return <EmployerProfileView user={user} onUpdate={setUser} />;
   }
 
   // =================================================================
@@ -460,18 +477,15 @@ export default function ProfilePage() {
 
   const completionScore = user.profileCompletionScore;
 
-  const isEmployer = user.role === "corporate_employer" || user.role === "individual_employer";
   const tabs = [
-    { id: "overview", label: "Genel Bakış", icon: User },
-    ...(isEmployer ? [] : [
-      { id: "education", label: "Eğitim", icon: GraduationCap },
-      { id: "experience", label: "Deneyim", icon: Briefcase },
-      { id: "projects", label: "Projeler", icon: FolderKanban },
-      { id: "certifications", label: "Sertifikalar", icon: Award },
-      { id: "skills", label: "Yetenekler", icon: Sparkles },
-      { id: "languages", label: "Diller", icon: Languages },
-      { id: "preferences", label: "Tercihler", icon: Settings },
-    ])
+    { id: "overview", label: "Genel Bakış", icon: UserIcon },
+    { id: "education", label: "Eğitim", icon: GraduationCap },
+    { id: "experience", label: "Deneyim", icon: Briefcase },
+    { id: "projects", label: "Projeler", icon: FolderKanban },
+    { id: "certifications", label: "Sertifikalar", icon: Award },
+    { id: "skills", label: "Yetenekler", icon: Sparkles },
+    { id: "languages", label: "Diller", icon: Languages },
+    { id: "preferences", label: "Tercihler", icon: Settings },
   ];
 
   // =================================================================
@@ -560,7 +574,6 @@ export default function ProfilePage() {
               </div>
 
               {/* CV Section and Applications */}
-              {!isEmployer && (
                 <>
                   <div className="mt-6 pt-4 border-t border-slate-100">
                     <h3 className="text-xs font-bold text-slate-900 mb-2 flex items-center gap-1.5">
@@ -622,7 +635,6 @@ export default function ProfilePage() {
                     </Link>
                   </div>
                 </>
-              )}
             </div>
           </div>
 
@@ -975,7 +987,9 @@ export default function ProfilePage() {
                           currency: user.preferences?.currency || "TRY",
                           workModels: user.preferences?.workModels?.join(", ") || "",
                           preferredCities: user.preferences?.preferredCities?.join(", ") || "",
-                          preferredWorkingHours: user.preferences?.preferredWorkingHours?.join(", ") || ""
+                          preferredWorkingHours: user.preferences?.preferredWorkingHours?.join(", ") || "",
+                          employmentTypes: user.preferences?.employmentTypes?.join(", ") || "",
+                          preferredSchedule: user.preferences?.preferredSchedule || []
                         });
                         setEditModal("preferences");
                       }}
@@ -984,7 +998,7 @@ export default function ProfilePage() {
                       <Edit2 className="w-3 h-3" /> Düzenle
                     </button>
                   </div>
-                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-5">
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-5 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                       <div>
                         <h3 className="text-xs md:text-sm font-bold text-slate-400 uppercase mb-1">Maaş Beklentisi</h3>
@@ -1012,16 +1026,38 @@ export default function ProfilePage() {
                           )}
                         </div>
                       </div>
-                      <div className="md:col-span-2">
-                        <h3 className="text-xs md:text-sm font-bold text-slate-400 uppercase mb-1">Çalışma Saatleri</h3>
-                        <div className="flex flex-wrap gap-1.5">
-                          {user.preferences?.preferredWorkingHours && user.preferences.preferredWorkingHours.length > 0 ? (
-                            user.preferences.preferredWorkingHours.map((hours: string) => (
-                              <span key={hours} className="px-2 py-0.5 bg-white border border-slate-200 text-slate-700 rounded text-xs font-bold">{hours}</span>
+                    </div>
+
+                    <div className="flex gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100 items-start">
+                      <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center shrink-0">
+                        <Briefcase className="w-5 h-5 text-orange-600" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-slate-500 mb-1">Çalışma Şekli</div>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {user.preferences?.employmentTypes && user.preferences.employmentTypes.length > 0 ? (
+                            user.preferences.employmentTypes.map((type: string) => (
+                              <span key={type} className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-700">{type}</span>
                             ))
-                          ) : (
-                            <span className="text-sm font-semibold text-slate-900">Belirtilmemiş</span>
-                          )}
+                          ) : <span className="text-sm font-medium text-slate-400">Belirtilmedi</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100 items-start">
+                      <div className="w-10 h-10 rounded-xl bg-pink-100 flex items-center justify-center shrink-0">
+                        <Clock className="w-5 h-5 text-pink-600" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-slate-500 mb-1">Çalışma Saatleri (Özel)</div>
+                        <div className="flex flex-col gap-1 mt-2">
+                          {user.preferences?.preferredSchedule && user.preferences.preferredSchedule.length > 0 ? (
+                            user.preferences.preferredSchedule.map((s: any) => (
+                              <span key={s.day} className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-700">
+                                {s.day}: {s.start} - {s.end}
+                              </span>
+                            ))
+                          ) : <span className="text-sm font-medium text-slate-400">Belirtilmedi</span>}
                         </div>
                       </div>
                     </div>
@@ -1258,93 +1294,61 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs md:text-sm font-bold text-slate-500 uppercase mb-1">Tercih Edilen Şehirler (Birden fazla seçebilirsiniz)</label>
-              <select 
-                className="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm focus:border-indigo-500 outline-none mb-2"
-                onChange={(e) => {
-                  const city = e.target.value;
-                  if (!city) return;
-                  const currentArr = prefForm.preferredCities ? prefForm.preferredCities.split(',').map(s=>s.trim()).filter(Boolean) : [];
-                  if (!currentArr.includes(city)) {
-                    setPrefForm({...prefForm, preferredCities: [...currentArr, city].join(", ")});
-                  }
-                  e.target.value = "";
-                }}
-              >
-                <option value="">Şehir Seçin / Ekleyin...</option>
-                <option value="Adana">Adana</option><option value="Adıyaman">Adıyaman</option><option value="Afyonkarahisar">Afyonkarahisar</option>
-                <option value="Ağrı">Ağrı</option><option value="Amasya">Amasya</option><option value="Ankara">Ankara</option>
-                <option value="Antalya">Antalya</option><option value="Artvin">Artvin</option><option value="Aydın">Aydın</option>
-                <option value="Balıkesir">Balıkesir</option><option value="Bilecik">Bilecik</option><option value="Bingöl">Bingöl</option>
-                <option value="Bitlis">Bitlis</option><option value="Bolu">Bolu</option><option value="Burdur">Burdur</option>
-                <option value="Bursa">Bursa</option><option value="Çanakkale">Çanakkale</option><option value="Çankırı">Çankırı</option>
-                <option value="Çorum">Çorum</option><option value="Denizli">Denizli</option><option value="Diyarbakır">Diyarbakır</option>
-                <option value="Edirne">Edirne</option><option value="Elazığ">Elazığ</option><option value="Erzincan">Erzincan</option>
-                <option value="Erzurum">Erzurum</option><option value="Eskişehir">Eskişehir</option><option value="Gaziantep">Gaziantep</option>
-                <option value="Giresun">Giresun</option><option value="Gümüşhane">Gümüşhane</option><option value="Hakkari">Hakkari</option>
-                <option value="Hatay">Hatay</option><option value="Isparta">Isparta</option><option value="Mersin">Mersin</option>
-                <option value="İstanbul">İstanbul</option><option value="İzmir">İzmir</option><option value="Kars">Kars</option>
-                <option value="Kastamonu">Kastamonu</option><option value="Kayseri">Kayseri</option><option value="Kırklareli">Kırklareli</option>
-                <option value="Kırşehir">Kırşehir</option><option value="Kocaeli">Kocaeli</option><option value="Konya">Konya</option>
-                <option value="Kütahya">Kütahya</option><option value="Malatya">Malatya</option><option value="Manisa">Manisa</option>
-                <option value="Kahramanmaraş">Kahramanmaraş</option><option value="Mardin">Mardin</option><option value="Muğla">Muğla</option>
-                <option value="Muş">Muş</option><option value="Nevşehir">Nevşehir</option><option value="Niğde">Niğde</option>
-                <option value="Ordu">Ordu</option><option value="Rize">Rize</option><option value="Sakarya">Sakarya</option>
-                <option value="Samsun">Samsun</option><option value="Siirt">Siirt</option><option value="Sinop">Sinop</option>
-                <option value="Sivas">Sivas</option><option value="Tekirdağ">Tekirdağ</option><option value="Tokat">Tokat</option>
-                <option value="Trabzon">Trabzon</option><option value="Tunceli">Tunceli</option><option value="Şanlıurfa">Şanlıurfa</option>
-                <option value="Uşak">Uşak</option><option value="Van">Van</option><option value="Yozgat">Yozgat</option>
-                <option value="Zonguldak">Zonguldak</option><option value="Aksaray">Aksaray</option><option value="Bayburt">Bayburt</option>
-                <option value="Karaman">Karaman</option><option value="Kırıkkale">Kırıkkale</option><option value="Batman">Batman</option>
-                <option value="Şırnak">Şırnak</option><option value="Bartın">Bartın</option><option value="Ardahan">Ardahan</option>
-                <option value="Iğdır">Iğdır</option><option value="Yalova">Yalova</option><option value="Karabük">Karabük</option>
-                <option value="Kilis">Kilis</option><option value="Osmaniye">Osmaniye</option><option value="Düzce">Düzce</option>
-              </select>
-              <div className="flex flex-wrap gap-2">
-                {(prefForm.preferredCities ? prefForm.preferredCities.split(',').map(s=>s.trim()).filter(Boolean) : []).map(city => (
-                  <div key={city} className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-bold border border-indigo-100">
-                    {city}
-                    <button type="button" className="text-indigo-400 hover:text-indigo-600" onClick={() => {
-                      const currentArr = prefForm.preferredCities.split(',').map(s=>s.trim()).filter(Boolean);
-                      setPrefForm({...prefForm, preferredCities: currentArr.filter(c => c !== city).join(", ")});
-                    }}>
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
+            <div className="space-y-3 sm:col-span-2">
+                <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-indigo-500" /> Çalışma Şekli
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {[
+                    { id: 'Tam Zamanlı', label: 'Tam Zamanlı' },
+                    { id: 'Yarı Zamanlı', label: 'Yarı Zamanlı' },
+                    { id: 'Serbest Zamanlı (Freelance)', label: 'Serbest Zamanlı (Freelance)' },
+                    { id: 'Staj', label: 'Staj' },
+                    { id: 'Dönemsel/Proje Bazlı', label: 'Dönemsel/Proje Bazlı' }
+                  ].map((wh) => (
+                    <label key={wh.id} className="flex items-center gap-2 cursor-pointer border px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors">
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4 text-indigo-600 rounded border-slate-300"
+                        checked={(prefForm.employmentTypes || "").includes(wh.id)}
+                        onChange={(e) => {
+                          const currentArr = prefForm.employmentTypes ? prefForm.employmentTypes.split(',').map(s=>s.trim()).filter(Boolean) : [];
+                          if (e.target.checked) {
+                            setPrefForm({...prefForm, employmentTypes: [...currentArr, wh.id].join(", ")});
+                          } else {
+                            setPrefForm({...prefForm, employmentTypes: currentArr.filter(i => i !== wh.id).join(", ")});
+                          }
+                        }}
+                      />
+                      <span className="text-sm font-bold text-slate-700">{wh.label}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
-            </div>
+
+              <div className="space-y-3 sm:col-span-2">
+                <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-indigo-500" /> Çalışma Saatleri (Özel)
+                </label>
+                <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50">
+                  <WorkScheduleBuilder
+                    value={prefForm.preferredSchedule || []}
+                    onChange={(schedule) => {
+                      setPrefForm({ ...prefForm, preferredSchedule: schedule });
+                    }}
+                  />
+                </div>
+              </div>
 
             <div>
-              <label className="block text-xs md:text-sm font-bold text-slate-500 uppercase mb-1">Çalışma Saatleri (Çoklu Seçim)</label>
-              <div className="flex flex-wrap gap-3 mt-1">
-                {[
-                  { id: "Tam Zamanlı", label: "Tam Zamanlı" },
-                  { id: "Yarı Zamanlı", label: "Yarı Zamanlı" },
-                  { id: "Serbest Zamanlı", label: "Serbest Zamanlı" },
-                  { id: "Vardiyalı", label: "Vardiyalı" },
-                  { id: "Esnek Çalışma", label: "Esnek Çalışma" },
-                  { id: "Hafta Sonu", label: "Hafta Sonu" }
-                ].map((wh) => (
-                  <label key={wh.id} className="flex items-center gap-2 cursor-pointer border px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors">
-                    <input 
-                      type="checkbox" 
-                      className="w-4 h-4 text-indigo-600 rounded border-slate-300"
-                      checked={(prefForm.preferredWorkingHours || "").includes(wh.id)}
-                      onChange={(e) => {
-                        const currentArr = prefForm.preferredWorkingHours ? prefForm.preferredWorkingHours.split(',').map(s=>s.trim()).filter(Boolean) : [];
-                        if (e.target.checked) {
-                          setPrefForm({...prefForm, preferredWorkingHours: [...currentArr, wh.id].join(", ")});
-                        } else {
-                          setPrefForm({...prefForm, preferredWorkingHours: currentArr.filter(i => i !== wh.id).join(", ")});
-                        }
-                      }}
-                    />
-                    <span className="text-sm font-bold text-slate-700">{wh.label}</span>
-                  </label>
-                ))}
-              </div>
+              <label className="block text-xs md:text-sm font-bold text-slate-500 uppercase mb-1">Tercih Edilen Şehirler</label>
+              <p className="text-xs text-slate-400 mb-2">Çalışmak istediğiniz şehirleri seçin (Birden fazla seçebilirsiniz)</p>
+              <MultiSelectDropdown
+                options={TURKEY_CITIES}
+                selectedValues={prefForm.preferredCities ? prefForm.preferredCities.split(',').map(s=>s.trim()).filter(Boolean) : []}
+                onChange={(cities) => setPrefForm({ ...prefForm, preferredCities: cities.join(", ") })}
+                placeholder="Şehir Seçiniz..."
+              />
             </div>
             <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
               <button type="button" onClick={() => setEditModal(null)} className="px-4 py-2 text-xs font-bold text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">İptal</button>

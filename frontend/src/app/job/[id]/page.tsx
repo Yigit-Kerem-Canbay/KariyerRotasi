@@ -396,10 +396,13 @@ export default function JobDetailPage() {
 
               {/* Tags */}
               <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-xl text-sm font-bold text-slate-600">
+                <div 
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-xl text-sm font-bold text-slate-600 cursor-help"
+                  title={job.cities?.join(', ') || job.location}
+                >
                   <MapPin className="w-4 h-4" />
                   {job.cities && job.cities.length > 0 
-                    ? job.cities.join(', ') + (job.location ? ` - ${job.location}` : '')
+                    ? (job.cities.length <= 3 ? job.cities.join(', ') : `${job.cities.slice(0, 2).join(', ')} ve diğer ${job.cities.length - 2} şehir`)
                     : [job.city, job.district].filter(Boolean).join(', ') || job.location}
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl text-sm font-bold">
@@ -421,10 +424,10 @@ export default function JobDetailPage() {
                   <CalendarDays className="w-4 h-4" />
                   {new Date(job.createdAt).toLocaleDateString('tr-TR')}
                 </div>
-                {job.workingHours && job.workingHours.length > 0 && (
+                {job.employmentTypes && job.employmentTypes.length > 0 && (
                   <div className="flex items-center gap-2 px-4 py-2 bg-orange-50 text-orange-700 rounded-xl text-sm font-bold border border-orange-100">
-                    <Clock className="w-4 h-4" />
-                    {job.workingHours.join(', ')}
+                    <Briefcase className="w-4 h-4" />
+                    {job.employmentTypes.join(', ')}
                   </div>
                 )}
               </div>
@@ -444,6 +447,52 @@ export default function JobDetailPage() {
               <div className="prose prose-slate prose-lg max-w-none font-medium text-slate-600 leading-relaxed whitespace-pre-wrap">
                 {job.description}
               </div>
+            </div>
+
+            {/* Çalışma Şartları (Model & Tipler & Saatler) */}
+            <div className="bg-white rounded-[32px] p-8 md:p-10 shadow-xl shadow-indigo-900/5 border border-slate-100">
+              <h2 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-3">
+                <div className="w-2.5 h-8 bg-indigo-600 rounded-full" />
+                Çalışma Şartları
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
+                  <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">Çalışma Modeli</h3>
+                  <p className="font-semibold text-slate-800 text-lg">
+                    {job.workModel === 'remote' ? 'Uzaktan Çalışma (Remote)' : job.workModel === 'hybrid' ? 'Hibrit Çalışma' : 'İş Yerinde (Onsite)'}
+                  </p>
+                </div>
+                
+                {job.employmentTypes && job.employmentTypes.length > 0 && (
+                  <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
+                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Çalışma Şekli</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {job.employmentTypes.map((type: string, idx: number) => (
+                        <span key={idx} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700">
+                          {type}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {job.workSchedule && job.workSchedule.length > 0 && (
+                <div className="mt-6 bg-slate-50 rounded-2xl p-6 border border-slate-100">
+                  <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Çalışma Günleri ve Saatleri</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {job.workSchedule.map((schedule: any, idx: number) => (
+                      <div key={idx} className="bg-white px-5 py-4 border border-slate-200 rounded-xl flex flex-col gap-1 shadow-sm">
+                        <span className="font-bold text-slate-900">{schedule.day}</span>
+                        <span className="text-sm font-bold text-indigo-600">
+                          {schedule.isDayOff ? 'İzin Günü' : `${schedule.startTime} - ${schedule.endTime}`}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Required Skills Section */}
@@ -665,13 +714,29 @@ export default function JobDetailPage() {
 
                 <div className="flex items-start gap-4">
                   <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
-                    <Clock className="w-5 h-5" />
+                    <Briefcase className="w-5 h-5" />
                   </div>
                   <div>
-                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Çalışma Saatleri</div>
-                    <div className="font-black text-slate-800">{job.workingHours?.join(', ') || 'Esnek / Belirlenmemiş'}</div>
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Çalışma Şekli</div>
+                    <div className="font-black text-slate-800">{job.employmentTypes?.join(', ') || 'Belirtilmemiş'}</div>
                   </div>
                 </div>
+
+                {job.workSchedule && job.workSchedule.length > 0 && (
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-pink-50 text-pink-600 flex items-center justify-center shrink-0">
+                      <Clock className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Çalışma Saatleri</div>
+                      <div className="font-black text-slate-800 text-sm flex flex-col gap-1">
+                        {job.workSchedule.map((s: any) => (
+                          <span key={s.day}>{s.day}: {s.start} - {s.end}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-start gap-4">
                   <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">

@@ -12,14 +12,32 @@ export default function EmployerJobsPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const userRole = useAuthStore((s) => s.user?.role);
+  const token = useAuthStore((s) => s.token);
+
+  const [hasHydrated, setHasHydrated] = useState(false);
 
   useEffect(() => {
+    setHasHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydrated) return;
+    
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+
+    // Wait until user is fully populated from store
+    if (!userRole) return;
+
     if (userRole !== 'corporate_employer' && userRole !== 'individual_employer') {
       router.push('/jobs');
       return;
     }
+    
     fetchJobs();
-  }, [userRole, router]);
+  }, [userRole, token, router, hasHydrated]);
 
   const fetchJobs = async () => {
     try {
@@ -51,7 +69,7 @@ export default function EmployerJobsPage() {
           href="/profile"
           className="absolute top-6 left-6 z-10 bg-white/10 backdrop-blur-md px-4 h-10 rounded-xl flex items-center gap-2 font-semibold text-white hover:bg-white/20 transition-all border border-white/10"
         >
-          <LayoutDashboard className="w-4 h-4" /> Panele Dön
+          <LayoutDashboard className="w-4 h-4" /> Profile Dön
         </Link>
 
         {jobs.length > 0 && (
@@ -101,7 +119,12 @@ export default function EmployerJobsPage() {
                     </h3>
                   </div>
                   <div className="flex items-center gap-4 text-sm font-bold text-slate-500 mb-4">
-                    <span className="flex items-center gap-1.5"><MapPin className="w-4 h-4" /> {job.location}</span>
+                    <span className="flex items-center gap-1.5 cursor-help" title={job.cities?.join(', ') || job.location}>
+                      <MapPin className="w-4 h-4" /> 
+                      {job.cities && job.cities.length > 0 
+                        ? (job.cities.length <= 2 ? job.cities.join(', ') : `${job.cities.slice(0, 2).join(', ')} ve diğer ${job.cities.length - 2} şehir`)
+                        : job.location}
+                    </span>
                     <span className="flex items-center gap-1.5"><Clock className="w-4 h-4" /> {new Date(job.createdAt).toLocaleDateString('tr-TR')}</span>
                   </div>
                   <div className="flex flex-wrap gap-2">

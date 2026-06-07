@@ -119,6 +119,9 @@ export class JobsService {
         educationLevel: data.educationLevel,
         militaryStatus: data.militaryStatus,
         language: data.language,
+        workingHours: Array.isArray(data.workingHours) ? data.workingHours : [],
+        workSchedule: data.workSchedule || null,
+        employmentTypes: Array.isArray(data.employmentTypes) ? data.employmentTypes : [],
         jobSkills: {
           create: (data.skills || []).map((skillName: string) => ({
             skill: {
@@ -176,6 +179,9 @@ export class JobsService {
         educationLevel: data.educationLevel,
         militaryStatus: data.militaryStatus,
         language: data.language,
+        workingHours: Array.isArray(data.workingHours) ? data.workingHours : undefined,
+        workSchedule: data.workSchedule !== undefined ? data.workSchedule : undefined,
+        employmentTypes: Array.isArray(data.employmentTypes) ? data.employmentTypes : undefined,
         jobSkills: {
           create: (data.skills || []).map((skillName: string) => ({
             skill: {

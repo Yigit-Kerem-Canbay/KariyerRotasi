@@ -12,6 +12,106 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
+import { MultiSelectDropdown } from "@/components/ui/MultiSelectDropdown";
+import { WorkScheduleBuilder } from '@/components/ui/WorkScheduleBuilder';
+
+const TURKEY_CITIES = [
+  { id: 'Adana', label: 'Adana' },
+  { id: 'Adıyaman', label: 'Adıyaman' },
+  { id: 'Afyonkarahisar', label: 'Afyonkarahisar' },
+  { id: 'Ağrı', label: 'Ağrı' },
+  { id: 'Amasya', label: 'Amasya' },
+  { id: 'Ankara', label: 'Ankara' },
+  { id: 'Antalya', label: 'Antalya' },
+  { id: 'Artvin', label: 'Artvin' },
+  { id: 'Aydın', label: 'Aydın' },
+  { id: 'Balıkesir', label: 'Balıkesir' },
+  { id: 'Bilecik', label: 'Bilecik' },
+  { id: 'Bingöl', label: 'Bingöl' },
+  { id: 'Bitlis', label: 'Bitlis' },
+  { id: 'Bolu', label: 'Bolu' },
+  { id: 'Burdur', label: 'Burdur' },
+  { id: 'Bursa', label: 'Bursa' },
+  { id: 'Çanakkale', label: 'Çanakkale' },
+  { id: 'Çankırı', label: 'Çankırı' },
+  { id: 'Çorum', label: 'Çorum' },
+  { id: 'Denizli', label: 'Denizli' },
+  { id: 'Diyarbakır', label: 'Diyarbakır' },
+  { id: 'Edirne', label: 'Edirne' },
+  { id: 'Elazığ', label: 'Elazığ' },
+  { id: 'Erzincan', label: 'Erzincan' },
+  { id: 'Erzurum', label: 'Erzurum' },
+  { id: 'Eskişehir', label: 'Eskişehir' },
+  { id: 'Gaziantep', label: 'Gaziantep' },
+  { id: 'Giresun', label: 'Giresun' },
+  { id: 'Gümüşhane', label: 'Gümüşhane' },
+  { id: 'Hakkari', label: 'Hakkari' },
+  { id: 'Hatay', label: 'Hatay' },
+  { id: 'Isparta', label: 'Isparta' },
+  { id: 'Mersin', label: 'Mersin' },
+  { id: 'İstanbul', label: 'İstanbul' },
+  { id: 'İzmir', label: 'İzmir' },
+  { id: 'Kars', label: 'Kars' },
+  { id: 'Kastamonu', label: 'Kastamonu' },
+  { id: 'Kayseri', label: 'Kayseri' },
+  { id: 'Kırklareli', label: 'Kırklareli' },
+  { id: 'Kırşehir', label: 'Kırşehir' },
+  { id: 'Kocaeli', label: 'Kocaeli' },
+  { id: 'Konya', label: 'Konya' },
+  { id: 'Kütahya', label: 'Kütahya' },
+  { id: 'Malatya', label: 'Malatya' },
+  { id: 'Manisa', label: 'Manisa' },
+  { id: 'Kahramanmaraş', label: 'Kahramanmaraş' },
+  { id: 'Mardin', label: 'Mardin' },
+  { id: 'Muğla', label: 'Muğla' },
+  { id: 'Muş', label: 'Muş' },
+  { id: 'Nevşehir', label: 'Nevşehir' },
+  { id: 'Niğde', label: 'Niğde' },
+  { id: 'Ordu', label: 'Ordu' },
+  { id: 'Rize', label: 'Rize' },
+  { id: 'Sakarya', label: 'Sakarya' },
+  { id: 'Samsun', label: 'Samsun' },
+  { id: 'Siirt', label: 'Siirt' },
+  { id: 'Sinop', label: 'Sinop' },
+  { id: 'Sivas', label: 'Sivas' },
+  { id: 'Şanlıurfa', label: 'Şanlıurfa' },
+  { id: 'Tekirdağ', label: 'Tekirdağ' },
+  { id: 'Tokat', label: 'Tokat' },
+  { id: 'Trabzon', label: 'Trabzon' },
+  { id: 'Tunceli', label: 'Tunceli' },
+  { id: 'Uşak', label: 'Uşak' },
+  { id: 'Van', label: 'Van' },
+  { id: 'Yozgat', label: 'Yozgat' },
+  { id: 'Zonguldak', label: 'Zonguldak' },
+  { id: 'Aksaray', label: 'Aksaray' },
+  { id: 'Bayburt', label: 'Bayburt' },
+  { id: 'Karaman', label: 'Karaman' },
+  { id: 'Kırıkkale', label: 'Kırıkkale' },
+  { id: 'Batman', label: 'Batman' },
+  { id: 'Şırnak', label: 'Şırnak' },
+  { id: 'Bartın', label: 'Bartın' },
+  { id: 'Ardahan', label: 'Ardahan' },
+  { id: 'Iğdır', label: 'Iğdır' },
+  { id: 'Yalova', label: 'Yalova' },
+  { id: 'Karabük', label: 'Karabük' },
+  { id: 'Kilis', label: 'Kilis' },
+  { id: 'Osmaniye', label: 'Osmaniye' },
+  { id: 'Düzce', label: 'Düzce' }
+];
+
+const WORK_MODELS = [
+  { id: "remote", label: "Uzaktan (Remote)" },
+  { id: "onsite", label: "Yüz Yüze (Ofis)" },
+  { id: "hybrid", label: "Hibrit" }
+];
+
+const EMPLOYMENT_TYPES = [
+  { id: 'Tam Zamanlı', label: 'Tam Zamanlı' },
+  { id: 'Yarı Zamanlı', label: 'Yarı Zamanlı' },
+  { id: 'Serbest Zamanlı (Freelance)', label: 'Serbest Zamanlı (Freelance)' },
+  { id: 'Staj', label: 'Staj' },
+  { id: 'Dönemsel/Proje Bazlı', label: 'Dönemsel/Proje Bazlı' }
+];
 
 const schema = z.object({
   title: z.string().min(3, "İlan başlığı en az 3 karakter olmalı."),
@@ -29,6 +129,8 @@ const schema = z.object({
   militaryStatus: z.string().optional(),
   language: z.string().optional(),
   skills: z.string().optional(), // Will split by comma
+  employmentTypes: z.array(z.string()).optional(),
+  workSchedule: z.array(z.any()).optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -151,130 +253,47 @@ export default function PostJobPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-sm font-bold">Çalışma Modeli * (Çoklu Seçim)</Label>
-                <div className="flex flex-wrap gap-3 mt-1">
-                  {[
-                    { id: "remote", label: "Uzaktan (Remote)" },
-                    { id: "onsite", label: "Yüz Yüze (Ofis)" },
-                    { id: "hybrid", label: "Hibrit" }
-                  ].map((wm) => (
-                    <label key={wm.id} className="flex items-center gap-2 cursor-pointer border px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors bg-white">
-                      <input 
-                        type="checkbox" 
-                        className="w-4 h-4 text-indigo-600 rounded border-slate-300"
-                        checked={(watch("workModel") || "").includes(wm.id)}
-                        onChange={(e) => {
-                          const currentVal = watch("workModel") || "";
-                          let currentArr = currentVal ? currentVal.split(',').map(s=>s.trim()).filter(Boolean) : [];
-                          if (e.target.checked) {
-                            currentArr.push(wm.id);
-                          } else {
-                            currentArr = currentArr.filter(i => i !== wm.id);
-                          }
-                          setValue("workModel", currentArr.join(", "));
-                        }}
-                      />
-                      <span className="text-sm font-bold text-slate-700">{wm.label}</span>
-                    </label>
-                  ))}
-                </div>
+                <MultiSelectDropdown
+                  options={WORK_MODELS}
+                  selectedValues={(watch("workModel") || "").split(",").map(s => s.trim()).filter(Boolean)}
+                  onChange={(selected) => {
+                    setValue("workModel", selected.join(", "));
+                  }}
+                  placeholder="Çalışma modeli seçin..."
+                />
                 {errors.workModel && <p className="text-xs text-red-500 font-medium">{errors.workModel.message}</p>}
               </div>
               <div className="space-y-2">
-                <div className="flex items-center justify-between mb-1">
-                  <Label className="text-sm font-bold">Şehirler (Opsiyonel)</Label>
-                  <button type="button" onClick={() => setValue("cities", ["Tüm Türkiye"])} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-1 rounded">
-                    Tüm Türkiye
-                  </button>
-                </div>
-                <select
-                  className="w-full h-10 px-3 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none text-sm bg-white mb-2"
-                  onChange={(e) => {
-                    const city = e.target.value;
-                    if (!city) return;
-                    const currentCities = watch("cities") || [];
-                    if (!currentCities.includes(city)) {
-                      setValue("cities", [...currentCities, city]);
-                    }
-                    e.target.value = "";
+                <Label className="text-sm font-bold">Şehir Seçimi * (Çoklu Seçim)</Label>
+                <MultiSelectDropdown
+                  options={TURKEY_CITIES}
+                  selectedValues={watch("cities") || []}
+                  onChange={(selected) => {
+                    setValue("cities", selected);
                   }}
-                >
-                  <option value="">Şehir Seçin / Ekleyin...</option>
-                  <option value="Adana">Adana</option><option value="Adıyaman">Adıyaman</option><option value="Afyonkarahisar">Afyonkarahisar</option>
-                  <option value="Ağrı">Ağrı</option><option value="Amasya">Amasya</option><option value="Ankara">Ankara</option>
-                  <option value="Antalya">Antalya</option><option value="Artvin">Artvin</option><option value="Aydın">Aydın</option>
-                  <option value="Balıkesir">Balıkesir</option><option value="Bilecik">Bilecik</option><option value="Bingöl">Bingöl</option>
-                  <option value="Bitlis">Bitlis</option><option value="Bolu">Bolu</option><option value="Burdur">Burdur</option>
-                  <option value="Bursa">Bursa</option><option value="Çanakkale">Çanakkale</option><option value="Çankırı">Çankırı</option>
-                  <option value="Çorum">Çorum</option><option value="Denizli">Denizli</option><option value="Diyarbakır">Diyarbakır</option>
-                  <option value="Edirne">Edirne</option><option value="Elazığ">Elazığ</option><option value="Erzincan">Erzincan</option>
-                  <option value="Erzurum">Erzurum</option><option value="Eskişehir">Eskişehir</option><option value="Gaziantep">Gaziantep</option>
-                  <option value="Giresun">Giresun</option><option value="Gümüşhane">Gümüşhane</option><option value="Hakkari">Hakkari</option>
-                  <option value="Hatay">Hatay</option><option value="Isparta">Isparta</option><option value="Mersin">Mersin</option>
-                  <option value="İstanbul">İstanbul</option><option value="İzmir">İzmir</option><option value="Kars">Kars</option>
-                  <option value="Kastamonu">Kastamonu</option><option value="Kayseri">Kayseri</option><option value="Kırklareli">Kırklareli</option>
-                  <option value="Kırşehir">Kırşehir</option><option value="Kocaeli">Kocaeli</option><option value="Konya">Konya</option>
-                  <option value="Kütahya">Kütahya</option><option value="Malatya">Malatya</option><option value="Manisa">Manisa</option>
-                  <option value="Kahramanmaraş">Kahramanmaraş</option><option value="Mardin">Mardin</option><option value="Muğla">Muğla</option>
-                  <option value="Muş">Muş</option><option value="Nevşehir">Nevşehir</option><option value="Niğde">Niğde</option>
-                  <option value="Ordu">Ordu</option><option value="Rize">Rize</option><option value="Sakarya">Sakarya</option>
-                  <option value="Samsun">Samsun</option><option value="Siirt">Siirt</option><option value="Sinop">Sinop</option>
-                  <option value="Sivas">Sivas</option><option value="Tekirdağ">Tekirdağ</option><option value="Tokat">Tokat</option>
-                  <option value="Trabzon">Trabzon</option><option value="Tunceli">Tunceli</option><option value="Şanlıurfa">Şanlıurfa</option>
-                  <option value="Uşak">Uşak</option><option value="Van">Van</option><option value="Yozgat">Yozgat</option>
-                  <option value="Zonguldak">Zonguldak</option><option value="Aksaray">Aksaray</option><option value="Bayburt">Bayburt</option>
-                  <option value="Karaman">Karaman</option><option value="Kırıkkale">Kırıkkale</option><option value="Batman">Batman</option>
-                  <option value="Şırnak">Şırnak</option><option value="Bartın">Bartın</option><option value="Ardahan">Ardahan</option>
-                  <option value="Iğdır">Iğdır</option><option value="Yalova">Yalova</option><option value="Karabük">Karabük</option>
-                  <option value="Kilis">Kilis</option><option value="Osmaniye">Osmaniye</option><option value="Düzce">Düzce</option>
-                </select>
-                <div className="flex flex-wrap gap-2">
-                  {(watch("cities") || []).map((city: string) => (
-                    <div key={city} className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-bold border border-indigo-100">
-                      {city}
-                      <button type="button" className="text-indigo-400 hover:text-indigo-600" onClick={() => {
-                        const currentCities = watch("cities") || [];
-                        setValue("cities", currentCities.filter(c => c !== city));
-                      }}>
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                  placeholder="Şehir seçin..."
+                  selectAllOptionText="Tüm Şehirler"
+                />
               </div>
               <div className="space-y-2 sm:col-span-2">
-                <Label className="text-sm font-bold">Çalışma Saatleri (Opsiyonel)</Label>
-                <div className="flex gap-2 mb-2">
-                  <Input 
-                    id="workingHourInput"
-                    placeholder="Örn: Hafta Sonu, Yarı Zamanlı, 14:00-18:00 vb. (Yazıp Enter'a basın)" 
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        const val = e.currentTarget.value.trim();
-                        if (val) {
-                          const currentArr = watch("workingHours") || [];
-                          if (!currentArr.includes(val)) {
-                            setValue("workingHours", [...currentArr, val]);
-                          }
-                          e.currentTarget.value = "";
-                        }
-                      }
-                    }}
-                  />
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {(watch("workingHours") || []).map((hour: string) => (
-                    <div key={hour} className="flex items-center gap-1.5 px-3 py-1 bg-violet-50 text-violet-700 rounded-lg text-sm font-bold border border-violet-100">
-                      {hour}
-                      <button type="button" className="text-violet-400 hover:text-violet-600" onClick={() => {
-                        const currentArr = watch("workingHours") || [];
-                        setValue("workingHours", currentArr.filter(h => h !== hour));
-                      }}>
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                <Label className="text-sm font-bold">Çalışma Şekli * (Çoklu Seçim)</Label>
+                <MultiSelectDropdown
+                  options={EMPLOYMENT_TYPES}
+                  selectedValues={watch("employmentTypes") || []}
+                  onChange={(selected) => {
+                    setValue("employmentTypes", selected);
+                  }}
+                  placeholder="Çalışma şekli seçin..."
+                />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label className="text-sm font-bold">Çalışma Günleri ve Saatleri</Label>
+                <WorkScheduleBuilder
+                  value={watch("workSchedule") || []}
+                  onChange={(schedule) => {
+                    setValue("workSchedule", schedule);
+                  }}
+                />
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="location" className="text-sm font-bold">Açık Adres (Opsiyonel)</Label>

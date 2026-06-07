@@ -63,4 +63,37 @@ export class CompaniesService {
       take: limit,
     });
   }
+
+  async getMyCompany(userId: string) {
+    const company = await this.prisma.company.findFirst({
+      where: { ownerId: userId },
+    });
+    return company;
+  }
+
+  async updateMyCompany(userId: string, data: any) {
+    let company = await this.prisma.company.findFirst({
+      where: { ownerId: userId },
+    });
+
+    if (!company) {
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      if (!user) throw new NotFoundException('Kullanıcı bulunamadı.');
+      
+      company = await this.prisma.company.create({
+        data: {
+          name: data.name || user.name,
+          ownerId: userId,
+          isVerified: true,
+          ...data,
+        },
+      });
+      return company;
+    }
+
+    return this.prisma.company.update({
+      where: { id: company.id },
+      data,
+    });
+  }
 }

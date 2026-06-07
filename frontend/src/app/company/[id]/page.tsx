@@ -346,7 +346,7 @@ export default function CompanyDetailPage() {
             </div>
             
             {company.website && (
-              <a href={company.website} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-indigo-600 font-extrabold text-[15px] hover:text-indigo-800 transition-colors group">
+              <a href={company.website.startsWith('http') ? company.website : `https://${company.website}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-indigo-600 font-extrabold text-[15px] hover:text-indigo-800 transition-colors group">
                 <Globe className="w-5 h-5" /> Web sitesini ziyaret et 
                 <ExternalLink className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
               </a>

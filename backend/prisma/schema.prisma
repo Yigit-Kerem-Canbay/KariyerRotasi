@@ -136,6 +136,8 @@ model Job {
   language         String?
   remote           Boolean  @default(false)
   workingHours     String[] @map("working_hours")
+  workSchedule     Json?    @map("work_schedule")
+  employmentTypes  String[] @map("employment_types")
   viewCount        Int      @default(0) @map("view_count")
   createdAt        DateTime @default(now()) @map("created_at")
   embedding        Unsupported("vector(384)")?
@@ -365,6 +367,8 @@ model UserPreference {
   workModels       String[] @map("work_models") // ["onsite", "remote", "hybrid"]
   preferredCities  String[] @map("preferred_cities")
   preferredWorkingHours String[] @map("preferred_working_hours")
+  preferredSchedule     Json?    @map("preferred_schedule")
+  employmentTypes       String[] @map("employment_types")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
