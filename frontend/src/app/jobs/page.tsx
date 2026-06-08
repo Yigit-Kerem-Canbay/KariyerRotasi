@@ -21,12 +21,8 @@ import {
 } from 'lucide-react';
 import { useDebounce } from 'use-debounce';
 import { TURKISH_PROVINCES_ALPHABETICAL } from '@/constants/turkishProvinces';
-import {
-  companyLogoSrc,
-  resolveLogoFileKey,
-  warmupCompanyLogo,
-  warmupCompanyLogoFor,
-} from '@/lib/companyLogo';
+import { resolveLogoFileKey, companyLogoSrc, warmupCompanyLogo, warmupCompanyLogoFor } from '@/lib/companyLogo';
+import { formatWorkModel, formatLocation } from '@/lib/utils';
 
 const API = 'http://localhost:4000/api';
 
@@ -37,13 +33,7 @@ function getAvatarColor(name: string) {
   return `hsl(${hash % 360}, 80%, 55%)`;
 }
 
-const SECTOR_OPTIONS = [
-  "Teknoloji & Yazılım", "Gıda & Restoran", "Sağlık", "Perakende", 
-  "İnşaat & Gayrimenkul", "Eğitim", "Finans & Bankacılık", "Otomotiv", 
-  "Lojistik & Taşıma", "E-Ticaret", "Savunma Sanayi", "Turizm", "Tekstil",
-  "Telekomünikasyon", "Temizlik", "Güvenlik", "Enerji", "Medya & İletişim",
-  "Tarım & Hayvancılık", "Kozmetik"
-].sort((a, b) => a.localeCompare(b, 'tr'));
+// Remove static SECTOR_OPTIONS
 
 const EDUCATION_OPTIONS = ['Lise', 'Ön Lisans', 'Üniversite', 'Yüksek Lisans', 'Fark Etmez'].sort((a, b) =>
   a.localeCompare(b, 'tr'),
@@ -67,9 +57,17 @@ const MILITARY_OPTIONS = ['Yapıldı', 'Tecilli', 'Muaf', 'Fark Etmez'];
 const EXPERIENCE_OPTIONS = ['Yeni Mezun', 'Junior', 'Orta Düzey', 'Uzman', 'Yönetici'];
 
 const WORK_MODEL_CONFIG = [
-  { value: 'onsite', label: 'İş yerinde' },
+  { value: 'onsite', label: 'Yüz Yüze (Ofis)' },
+  { value: 'remote', label: 'Uzaktan (Remote)' },
   { value: 'hybrid', label: 'Hibrit' },
-  { value: 'remote', label: 'Uzaktan' },
+];
+
+const EMPLOYMENT_TYPES = [
+  'Tam Zamanlı',
+  'Yarı Zamanlı',
+  'Serbest Zamanlı (Freelance)',
+  'Staj',
+  'Dönemsel/Proje Bazlı'
 ];
 
 type FilterState = {
@@ -78,11 +76,11 @@ type FilterState = {
   educationLevels: string[];
   languages: string[];
   workModels: string[];
+  employmentTypes: string[];
   experiences: string[];
   militaryStatuses: string[];
   remoteOnly: boolean;
   salaryMinGte: string;
-  salaryMaxLte: string;
 };
 
 const emptyFilters = (): FilterState => ({
@@ -91,11 +89,11 @@ const emptyFilters = (): FilterState => ({
   educationLevels: [],
   languages: [],
   workModels: [],
+  employmentTypes: [],
   experiences: [],
   militaryStatuses: [],
   remoteOnly: false,
   salaryMinGte: '',
-  salaryMaxLte: '',
 });
 
 function parseFilters(sp: URLSearchParams): FilterState {
@@ -123,13 +121,13 @@ function parseFilters(sp: URLSearchParams): FilterState {
       : splitList('educationLevel'),
     languages: splitLanguages(),
     workModels: splitList('workModels').length ? splitList('workModels') : splitList('workModel'),
+    employmentTypes: splitList('employmentTypes').length ? splitList('employmentTypes') : splitList('employmentType'),
     experiences: splitList('experiences').length ? splitList('experiences') : splitList('experience'),
     militaryStatuses: splitList('militaryStatuses').length
       ? splitList('militaryStatuses')
       : splitList('militaryStatus'),
     remoteOnly: sp.get('remoteOnly') === '1' || sp.get('remote') === 'only',
     salaryMinGte: sp.get('salaryMinGte') ?? '',
-    salaryMaxLte: sp.get('salaryMaxLte') ?? '',
   };
 }
 
@@ -159,6 +157,11 @@ function writeFiltersIntoParams(f: FilterState, p: URLSearchParams) {
     p.delete('workModels');
     p.delete('workModel');
   }
+  if (f.employmentTypes.length) p.set('employmentTypes', f.employmentTypes.join(','));
+  else {
+    p.delete('employmentTypes');
+    p.delete('employmentType');
+  }
   if (f.experiences.length) p.set('experiences', f.experiences.join(','));
   else {
     p.delete('experiences');
@@ -173,8 +176,6 @@ function writeFiltersIntoParams(f: FilterState, p: URLSearchParams) {
   else p.delete('remoteOnly');
   if (f.salaryMinGte.trim()) p.set('salaryMinGte', f.salaryMinGte.trim());
   else p.delete('salaryMinGte');
-  if (f.salaryMaxLte.trim()) p.set('salaryMaxLte', f.salaryMaxLte.trim());
-  else p.delete('salaryMaxLte');
 }
 
 function JobLogo({
@@ -288,23 +289,16 @@ function MultiPick({
           ) : null}
         </div>
       )}
-      {open ? (
-        <>
-          <button
-            type="button"
-            aria-label="Kapat"
-            className="fixed inset-0 z-40 bg-transparent"
-            onClick={() => setOpen(false)}
+      {open && (
+        <div className="mt-2 max-h-52 overflow-hidden rounded-xl border border-slate-200 bg-white py-2 shadow-sm">
+          <input
+            type="search"
+            placeholder="Liste içinde ara…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="mx-2 mb-2 w-[calc(100%-1rem)] rounded-lg border border-slate-100 bg-slate-50 px-2 py-1.5 text-xs font-medium outline-none focus:border-indigo-400"
           />
-          <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-52 overflow-hidden rounded-xl border border-slate-200 bg-white py-2 shadow-xl">
-            <input
-              type="search"
-              placeholder="Liste içinde ara…"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              className="mx-2 mb-2 w-[calc(100%-1rem)] rounded-lg border border-slate-100 bg-slate-50 px-2 py-1.5 text-xs font-medium outline-none focus:border-indigo-400"
-            />
-            <ul className="scrollbar-minimal max-h-36 overflow-y-auto px-1">
+          <ul className="scrollbar-minimal max-h-36 overflow-y-auto px-1">
               {filtered.map((opt) => {
                 const chk = selected.includes(opt);
                 return (
@@ -332,9 +326,8 @@ function MultiPick({
                 <li className="px-2 py-3 text-center text-xs font-medium text-slate-400">Sonuç yok</li>
               ) : null}
             </ul>
-          </div>
-        </>
-      ) : null}
+        </div>
+      )}
     </div>
   );
 }
@@ -369,6 +362,18 @@ function JobsPageContent() {
 
   const [companyId, setCompanyId] = useState(() => initialSp.get('companyId') ?? '');
   const [companyName, setCompanyName] = useState(() => initialSp.get('company') ?? '');
+  const [sectorOptions, setSectorOptions] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch(`${API}/jobs/stats/top-sectors?limit=100`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setSectorOptions(data.map((item: any) => item.sector).filter(Boolean));
+        }
+      })
+      .catch((err) => console.error('Failed to fetch sectors', err));
+  }, []);
 
   const [sort, setSort] = useState(() => initialSp.get('sort') ?? 'newest');
   const [page, setPage] = useState(() => Number(initialSp.get('page')) || 1);
@@ -453,12 +458,12 @@ function JobsPageContent() {
         params.append('educationLevels', applied.educationLevels.join(','));
       applied.languages.forEach((lng) => params.append('languages', lng));
       if (applied.workModels.length) params.append('workModels', applied.workModels.join(','));
+      if (applied.employmentTypes.length) params.append('employmentTypes', applied.employmentTypes.join(','));
       if (applied.experiences.length) params.append('experiences', applied.experiences.join(','));
       if (applied.militaryStatuses.length)
         params.append('militaryStatuses', applied.militaryStatuses.join(','));
       if (applied.remoteOnly) params.append('remoteOnly', 'true');
       if (applied.salaryMinGte.trim()) params.append('salaryMinGte', applied.salaryMinGte.trim());
-      if (applied.salaryMaxLte.trim()) params.append('salaryMaxLte', applied.salaryMaxLte.trim());
       params.append('sort', sort);
 
       const res = await fetch(`${API}/jobs?${params.toString()}`);
@@ -594,17 +599,24 @@ function JobsPageContent() {
             </div>
 
             <div className="scrollbar-minimal flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain px-5 pb-6 pt-4">
-              <MultiPick
-                label="Şehir"
-                hint="81 il • birden fazla seçebilirsiniz"
-                options={TURKISH_PROVINCES_ALPHABETICAL}
-                selected={draft.cities}
-                onChange={(next) => setDraft((d) => ({ ...d, cities: next }))}
-              />
+              <div className="relative">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-900">Şehir</span>
+                  <button type="button" onClick={() => setDraft(d => ({ ...d, cities: TURKISH_PROVINCES_ALPHABETICAL }))} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-2 py-1 rounded-md">Tümünü Seç</button>
+                  <button type="button" onClick={() => setDraft(d => ({ ...d, cities: [] }))} className="text-[10px] font-bold text-slate-500 hover:text-slate-700 bg-slate-100 px-2 py-1 rounded-md">Temizle</button>
+                </div>
+                <MultiPick
+                  label=""
+                  hint="81 il • birden fazla seçebilirsiniz"
+                  options={TURKISH_PROVINCES_ALPHABETICAL}
+                  selected={draft.cities}
+                  onChange={(next) => setDraft((d) => ({ ...d, cities: next }))}
+                />
+              </div>
 
               <MultiPick
                 label="Sektör"
-                options={SECTOR_OPTIONS}
+                options={sectorOptions}
                 selected={draft.sectors}
                 onChange={(next) => setDraft((d) => ({ ...d, sectors: next }))}
               />
@@ -625,7 +637,7 @@ function JobsPageContent() {
 
               <div>
                 <h3 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-slate-900">
-                  Çalışma şekli
+                  Çalışma Modeli
                 </h3>
                 <div className="flex flex-col gap-2">
                   {WORK_MODEL_CONFIG.map((m) => {
@@ -646,6 +658,35 @@ function JobsPageContent() {
                           }
                         />
                         <span className="text-sm font-semibold text-slate-700">{m.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-slate-900">
+                  Çalışma Şekli
+                </h3>
+                <div className="flex flex-col gap-2">
+                  {EMPLOYMENT_TYPES.map((et) => {
+                    const on = draft.employmentTypes.includes(et);
+                    return (
+                      <label key={et} className="flex cursor-pointer items-center gap-2">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                          checked={on}
+                          onChange={() =>
+                            setDraft((d) => ({
+                              ...d,
+                              employmentTypes: on
+                                ? d.employmentTypes.filter((x) => x !== et)
+                                : [...d.employmentTypes, et],
+                            }))
+                          }
+                        />
+                        <span className="text-sm font-semibold text-slate-700">{et}</span>
                       </label>
                     );
                   })}
@@ -702,7 +743,7 @@ function JobsPageContent() {
 
               <div>
                 <h3 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-slate-900">
-                  Maaş aralığı (₺ net, isteğe bağlı)
+                  Maaş Beklentisi (₺ net, min)
                 </h3>
                 <div className="flex gap-2">
                   <input
@@ -714,18 +755,6 @@ function JobsPageContent() {
                       setDraft((d) => ({
                         ...d,
                         salaryMinGte: e.target.value.replace(/[^\d]/g, ''),
-                      }))
-                    }
-                  />
-                  <input
-                    inputMode="numeric"
-                    placeholder="Max"
-                    className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-800 outline-none focus:border-indigo-500"
-                    value={draft.salaryMaxLte}
-                    onChange={(e) =>
-                      setDraft((d) => ({
-                        ...d,
-                        salaryMaxLte: e.target.value.replace(/[^\d]/g, ''),
                       }))
                     }
                   />
@@ -780,11 +809,11 @@ function JobsPageContent() {
                   setPage(1);
                 }}
               >
-                <option value="newest">En yeni önce</option>
-                <option value="recommended">Önerilen (sıcak / önizleme)</option>
-                <option value="salaryAsc">Maaş (↑ düşük → yüksek)</option>
-                <option value="salaryDesc">Maaş (↓ yüksek → düşük)</option>
-                <option value="oldest">En eski önce</option>
+                <option value="newest">En Yeni İlanlar (Önce)</option>
+                <option value="recommended">Bana Uygun (Akıllı Eşleşme)</option>
+                <option value="salaryDesc">Maaş (Yüksekten Düşüğe)</option>
+                <option value="salaryAsc">Maaş (Düşükten Yükseğe)</option>
+                <option value="oldest">En Eski İlanlar</option>
               </select>
             </div>
           </div>
@@ -846,19 +875,13 @@ function JobsPageContent() {
                     </div>
 
                     <div className="flex flex-wrap gap-3">
-                      <div className="flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">
+                      <div className="flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600" title={job.location}>
                         <MapPin className="h-3.5 w-3.5 shrink-0" />
-                        {job.cities && job.cities.length > 0
-                          ? (job.cities.length <= 2 ? job.cities.join(', ') : `${job.cities.slice(0, 2).join(', ')} ve diğer ${job.cities.length - 2} şehir`)
-                          : [job.city, job.district].filter(Boolean).join(' · ') || job.location}
+                        <span className="line-clamp-1">{formatLocation(job.location)}</span>
                       </div>
                       <div className="flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700">
                         <Briefcase className="h-3.5 w-3.5 shrink-0" />
-                        {job.workModel === 'remote'
-                          ? 'Uzaktan'
-                          : job.workModel === 'hybrid'
-                            ? 'Hibrit'
-                            : 'İş yerinde'}
+                        {formatWorkModel(job.workModel)}
                       </div>
                       <div className="flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
                         <CalendarDays className="h-3.5 w-3.5 shrink-0" />

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { ArrowLeft, Building2, MapPin, Zap, Clock, ExternalLink, XCircle, CheckCircle, Clock3 } from 'lucide-react';
 import { resolveLogoFileKey, warmupCompanyLogo, companyLogoSrc } from '@/lib/companyLogo';
+import { formatWorkModel, formatLocation } from '@/lib/utils';
 
 export default function ApplicationsPage() {
   const [applications, setApplications] = useState<any[]>([]);
@@ -128,10 +129,10 @@ export default function ApplicationsPage() {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <span className="px-3 py-1 bg-slate-50 text-slate-600 rounded-md text-xs font-bold border border-slate-100">
-                        {item.job.location}
+                        {formatLocation(item.job.location)}
                       </span>
                       <span className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-md text-xs font-bold border border-indigo-100">
-                        {item.job.workModel === 'remote' ? 'Uzaktan' : item.job.workModel === 'hybrid' ? 'Hibrit' : 'İş Yerinde'}
+                        {formatWorkModel(item.job.workModel)}
                       </span>
                       {item.job.salaryMin && (
                         <span className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-md text-xs font-bold border border-emerald-100">

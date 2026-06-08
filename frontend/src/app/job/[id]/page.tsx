@@ -31,7 +31,7 @@ import {
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { isAxiosError } from 'axios';
-
+import { formatWorkModel, formatLocation } from '@/lib/utils';
 const getAvatarColor = (name: string) => {
   const hash = Math.abs(name.split('').reduce((acc, char) => char.charCodeAt(0) + ((acc << 5) - acc), 0));
   return `hsl(${hash % 360}, 80%, 55%)`;
@@ -397,17 +397,15 @@ export default function JobDetailPage() {
               {/* Tags */}
               <div className="flex flex-wrap items-center gap-3">
                 <div 
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-xl text-sm font-bold text-slate-600 cursor-help"
-                  title={job.cities?.join(', ') || job.location}
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-xl text-sm font-bold text-slate-600"
+                  title={job.location}
                 >
                   <MapPin className="w-4 h-4" />
-                  {job.cities && job.cities.length > 0 
-                    ? (job.cities.length <= 3 ? job.cities.join(', ') : `${job.cities.slice(0, 2).join(', ')} ve diğer ${job.cities.length - 2} şehir`)
-                    : [job.city, job.district].filter(Boolean).join(', ') || job.location}
+                  {formatLocation(job.location)}
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl text-sm font-bold">
                   <Briefcase className="w-4 h-4" />
-                  {job.workModel === 'remote' ? 'Uzaktan' : job.workModel === 'hybrid' ? 'Hibrit' : 'İş Yerinde'}
+                  {formatWorkModel(job.workModel)}
                 </div>
                 {job.hideSalary ? (
                   <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-500 rounded-xl text-sm font-bold border border-slate-100">
@@ -458,18 +456,31 @@ export default function JobDetailPage() {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
-                  <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">Çalışma Modeli</h3>
-                  <p className="font-semibold text-slate-800 text-lg">
-                    {job.workModel === 'remote' ? 'Uzaktan Çalışma (Remote)' : job.workModel === 'hybrid' ? 'Hibrit Çalışma' : 'İş Yerinde (Onsite)'}
-                  </p>
+                  <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Çalışma Modeli</h3>
+                  <div className="flex flex-col items-start gap-2">
+                    {job.workModel ? job.workModel.split(',').map((w: string, idx: number) => {
+                      const t = w.trim().toLowerCase();
+                      const map: Record<string, string> = { remote: "Uzaktan (Remote)", onsite: "Yüz Yüze (Onsite)", hybrid: "Hibrit (Hybrid)" };
+                      const label = map[t] || t;
+                      return (
+                        <span key={idx} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 text-left">
+                          {label}
+                        </span>
+                      );
+                    }) : (
+                      <span className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700">
+                        Belirtilmemiş
+                      </span>
+                    )}
+                  </div>
                 </div>
                 
                 {job.employmentTypes && job.employmentTypes.length > 0 && (
                   <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
                     <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Çalışma Şekli</h3>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-col items-start gap-2">
                       {job.employmentTypes.map((type: string, idx: number) => (
-                        <span key={idx} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700">
+                        <span key={idx} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 text-left">
                           {type}
                         </span>
                       ))}
@@ -486,7 +497,7 @@ export default function JobDetailPage() {
                       <div key={idx} className="bg-white px-5 py-4 border border-slate-200 rounded-xl flex flex-col gap-1 shadow-sm">
                         <span className="font-bold text-slate-900">{schedule.day}</span>
                         <span className="text-sm font-bold text-indigo-600">
-                          {schedule.isDayOff ? 'İzin Günü' : `${schedule.startTime} - ${schedule.endTime}`}
+                          {schedule.isDayOff ? 'İzin Günü' : `${schedule.start || 'Belirtilmemiş'} - ${schedule.end || 'Belirtilmemiş'}`}
                         </span>
                       </div>
                     ))}
@@ -712,31 +723,7 @@ export default function JobDetailPage() {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
-                    <Briefcase className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Çalışma Şekli</div>
-                    <div className="font-black text-slate-800">{job.employmentTypes?.join(', ') || 'Belirtilmemiş'}</div>
-                  </div>
-                </div>
 
-                {job.workSchedule && job.workSchedule.length > 0 && (
-                  <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-pink-50 text-pink-600 flex items-center justify-center shrink-0">
-                      <Clock className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Çalışma Saatleri</div>
-                      <div className="font-black text-slate-800 text-sm flex flex-col gap-1">
-                        {job.workSchedule.map((s: any) => (
-                          <span key={s.day}>{s.day}: {s.start} - {s.end}</span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 <div className="flex items-start gap-4">
                   <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
@@ -794,8 +781,11 @@ export default function JobDetailPage() {
                     </div>
                     
                     <div className="mt-auto flex items-center justify-between pt-4 border-t border-slate-100">
-                      <div className="text-xs font-bold text-slate-400 bg-slate-100 px-3 py-1.5 rounded-lg">
-                        {simJob.location}
+                      <div className="text-xs font-bold text-slate-400 bg-slate-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5" /> 
+                        <span className="line-clamp-1" title={simJob.location}>
+                          {formatLocation(simJob.location)}
+                        </span>
                       </div>
                       <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-indigo-600 transition-colors" />
                     </div>

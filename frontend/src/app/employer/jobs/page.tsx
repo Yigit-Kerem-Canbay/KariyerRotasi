@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { Building2, MapPin, Users, Zap, Clock, ExternalLink, PlusCircle, LayoutDashboard, Eye, Heart } from 'lucide-react';
+import { formatWorkModel, formatLocation } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 
 export default function EmployerJobsPage() {
@@ -119,17 +120,15 @@ export default function EmployerJobsPage() {
                     </h3>
                   </div>
                   <div className="flex items-center gap-4 text-sm font-bold text-slate-500 mb-4">
-                    <span className="flex items-center gap-1.5 cursor-help" title={job.cities?.join(', ') || job.location}>
-                      <MapPin className="w-4 h-4" /> 
-                      {job.cities && job.cities.length > 0 
-                        ? (job.cities.length <= 2 ? job.cities.join(', ') : `${job.cities.slice(0, 2).join(', ')} ve diğer ${job.cities.length - 2} şehir`)
-                        : job.location}
+                    <span className="flex items-center gap-1.5" title={job.location}>
+                      <MapPin className="w-3.5 h-3.5" /> 
+                      {formatLocation(job.location)}
                     </span>
                     <span className="flex items-center gap-1.5"><Clock className="w-4 h-4" /> {new Date(job.createdAt).toLocaleDateString('tr-TR')}</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <span className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-md text-xs font-bold border border-indigo-100">
-                      {job.workModel === 'remote' ? 'Uzaktan' : job.workModel === 'hybrid' ? 'Hibrit' : 'İş Yerinde'}
+                      {formatWorkModel(job.workModel)}
                     </span>
                     {job.salaryMin && (
                       <span className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-md text-xs font-bold border border-emerald-100">

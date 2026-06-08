@@ -296,30 +296,20 @@ export class MatchEngine {
     // 6. Salary - Negotiability Zone
     if (job.hideSalary) {
       params.push({ name: 'Maaş', score: null, weight: weights.salary, status: 'not_applicable', note: 'İşveren maaş bilgisini gizli tutmayı tercih etmiş.' });
-    } else if (job.salaryMin && job.salaryMax) {
-      if (user.preferences?.salaryMin && user.preferences?.salaryMax) {
+    } else if (job.salaryMin || job.salaryMax) {
+      if (user.preferences?.salaryMin) {
         const uMin = user.preferences.salaryMin;
-        const uMax = user.preferences.salaryMax;
-        const jMin = job.salaryMin;
-        const jMax = job.salaryMax;
-
-        const negMin = Math.max(uMin, jMin);
-        const negMax = Math.min(uMax, jMax);
+        const jMax = job.salaryMax || job.salaryMin;
 
         let salScore = 0;
-        if (negMax >= negMin) {
-          // Negotiable zone exists
-          const negRange = negMax - negMin;
-          const uRange = Math.max(1, uMax - uMin);
-          const jRange = Math.max(1, jMax - jMin);
-          const uCov = negRange / uRange;
-          const jCov = negRange / jRange;
-          salScore = Math.max(0.40, Math.sqrt(uCov * jCov));
+        if (jMax >= uMin) {
+          // Job pays at least the minimum user expectation
+          salScore = 1.0;
         } else {
-          // Gap
-          const gap = negMin - negMax;
-          const avgRange = ((uMax - uMin) + (jMax - jMin)) / 2;
-          salScore = Math.max(0, 0.30 - (gap / Math.max(1, avgRange)) * 0.5);
+          // Job pays less than user expectation. Calculate penalty based on the gap.
+          const gap = uMin - jMax;
+          // If the gap is 50% of the minimum expectation, score drops to 0.
+          salScore = Math.max(0, 1.0 - (gap / uMin) * 2);
         }
         params.push({ name: 'Maaş', score: salScore, weight: weights.salary, status: 'known' });
       } else {

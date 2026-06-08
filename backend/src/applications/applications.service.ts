@@ -174,6 +174,7 @@ export class ApplicationsService {
           email: app.user.email,
           avatarUrl: app.user.avatarUrl,
           profile: app.user.profile,
+          phone: app.user.phone,
         },
         matchScore: matchResult.overallScore,
       };

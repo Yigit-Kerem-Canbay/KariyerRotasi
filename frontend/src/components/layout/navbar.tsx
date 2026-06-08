@@ -25,8 +25,7 @@ export function Navbar() {
         <nav className="hidden md:flex items-center gap-8 mr-auto ml-6">
           <Link href="/jobs" className="text-[14px] font-semibold text-gray-600 hover:text-indigo-600 transition-colors">İş İlanları</Link>
           <Link href="/companies" className="text-[14px] font-semibold text-gray-600 hover:text-indigo-600 transition-colors">Platformdaki Şirketler</Link>
-          <Link href="/career" className="text-[14px] font-semibold text-gray-600 hover:text-indigo-600 transition-colors">Kariyer Planlaması</Link>
-          <Link href="/guide" className="text-[14px] font-semibold text-gray-600 hover:text-indigo-600 transition-colors">Kariyer Rehberi</Link>
+          <Link href="/career-guide" className="text-[14px] font-semibold text-gray-600 hover:text-indigo-600 transition-colors">Kariyer Rehberi</Link>
         </nav>
 
         <div className="flex items-center gap-4 shrink-0">

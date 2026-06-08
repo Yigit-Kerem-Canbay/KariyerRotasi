@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { ArrowLeft, Building2, MapPin, Trash2, Zap, Clock, ExternalLink } from 'lucide-react';
+import { formatWorkModel, formatLocation } from '@/lib/utils';
 import { resolveLogoFileKey, warmupCompanyLogo, companyLogoSrc } from '@/lib/companyLogo';
 
 export default function SavedJobsPage() {
@@ -108,10 +109,10 @@ export default function SavedJobsPage() {
 
                 <div className="flex flex-wrap gap-2 mb-6">
                   <span className="px-3 py-1.5 bg-slate-50 text-slate-600 rounded-lg text-xs font-bold flex items-center gap-1.5 border border-slate-100">
-                    <MapPin className="w-3.5 h-3.5" /> {item.job.location}
+                    <MapPin className="w-3.5 h-3.5" /> {formatLocation(item.job.location)}
                   </span>
                   <span className="px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold border border-indigo-100">
-                    {item.job.workModel === 'remote' ? 'Uzaktan' : item.job.workModel === 'hybrid' ? 'Hibrit' : 'İş Yerinde'}
+                    {formatWorkModel(item.job.workModel)}
                   </span>
                   {item.job.salaryMin && (
                     <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-bold border border-emerald-100 flex items-center gap-1">

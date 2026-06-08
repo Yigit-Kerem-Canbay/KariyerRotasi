@@ -110,8 +110,12 @@ export default function EmployerApplicantsPage() {
 
                   {/* Candidate Info */}
                   <div className="flex-1 flex items-start gap-4">
-                    <div className="w-14 h-14 rounded-full bg-indigo-100 text-indigo-700 font-black text-xl flex items-center justify-center shrink-0">
-                      {app.user.name.charAt(0).toUpperCase()}
+                    <div className="w-14 h-14 rounded-full bg-indigo-100 text-indigo-700 font-black text-xl flex items-center justify-center shrink-0 overflow-hidden">
+                      {app.user.avatarUrl ? (
+                        <img src={`http://localhost:4000${app.user.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        app.user.name.charAt(0).toUpperCase()
+                      )}
                     </div>
                     <div>
                       <h3 className="font-bold text-lg text-slate-900 mb-1">{app.user.name}</h3>

@@ -118,7 +118,6 @@ export class UpdateLanguageDto {
 
 export class UpdatePreferenceDto {
   @IsOptional() @IsNumber() salaryMin?: number;
-  @IsOptional() @IsNumber() salaryMax?: number;
   @IsOptional() @IsString() currency?: string;
   @IsOptional() @IsArray() workModels?: string[];
   @IsOptional() @IsArray() preferredCities?: string[];

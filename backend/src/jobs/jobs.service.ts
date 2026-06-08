@@ -220,13 +220,13 @@ export class JobsService {
     const educationLevels = parseMulti(query.educationLevels ?? query.educationLevel).filter(Boolean);
     const languages = parseMulti(query.languages ?? query.language).filter(Boolean);
     const workModels = parseMulti(query.workModels ?? query.workModel).filter(Boolean);
+    const employmentTypes = parseMulti(query.employmentTypes ?? query.employmentType).filter(Boolean);
     const experiences = parseMulti(query.experiences ?? query.experience).filter(Boolean);
     const militaryStatuses = parseMulti(query.militaryStatuses ?? query.militaryStatus).filter(Boolean);
     const sort = typeof query.sort === 'string' ? query.sort.trim() : 'newest';
     const userId = typeof query.userId === 'string' ? query.userId.trim() : '';
 
     const minSalaryRaw = query.salaryMinGte ?? query.minSalary;
-    const maxSalaryRaw = query.salaryMaxLte ?? query.maxSalary;
 
     const andParts: Prisma.JobWhereInput[] = [];
 
@@ -280,7 +280,15 @@ export class JobsService {
 
     if (workModels.length > 0) {
       andParts.push({
-        workModel: { in: workModels },
+        OR: workModels.map((wm) => ({
+          workModel: { contains: wm, mode: Prisma.QueryMode.insensitive },
+        })),
+      });
+    }
+
+    if (employmentTypes.length > 0) {
+      andParts.push({
+        employmentTypes: { hasSome: employmentTypes },
       });
     }
 
@@ -332,21 +340,12 @@ export class JobsService {
     }
 
     let minSalary: number | undefined;
-    let maxSalary: number | undefined;
     if (minSalaryRaw !== undefined && minSalaryRaw !== '' && Number.isFinite(Number(minSalaryRaw))) {
       minSalary = Number(minSalaryRaw);
-    }
-    if (maxSalaryRaw !== undefined && maxSalaryRaw !== '' && Number.isFinite(Number(maxSalaryRaw))) {
-      maxSalary = Number(maxSalaryRaw);
     }
     if (minSalary !== undefined) {
       andParts.push({
         OR: [{ salaryMin: { gte: minSalary } }, { salaryMax: { gte: minSalary } }],
-      });
-    }
-    if (maxSalary !== undefined) {
-      andParts.push({
-        OR: [{ salaryMin: { lte: maxSalary } }, { salaryMax: { lte: maxSalary } }],
       });
     }
 

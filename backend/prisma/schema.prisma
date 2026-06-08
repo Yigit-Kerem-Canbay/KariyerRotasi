@@ -362,7 +362,6 @@ model UserPreference {
   id               String   @id @default(uuid())
   userId           String   @unique @map("user_id")
   salaryMin        Int?     @map("salary_min")
-  salaryMax        Int?     @map("salary_max")
   currency         String   @default("TRY")
   workModels       String[] @map("work_models") // ["onsite", "remote", "hybrid"]
   preferredCities  String[] @map("preferred_cities")

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
-import { ArrowLeft, User, Mail, MapPin, Zap, CheckCircle, XCircle, ShieldCheck, TrendingUp, AlertTriangle, Briefcase, GraduationCap, Code } from 'lucide-react';
+import { ArrowLeft, User, Mail, MapPin, Zap, CheckCircle, XCircle, ShieldCheck, TrendingUp, AlertTriangle, Briefcase, GraduationCap, Code, FileText, MessageSquare } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
 
 export default function EmployerApplicantProfilePage() {
@@ -82,15 +82,27 @@ export default function EmployerApplicantProfilePage() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 -mt-20 relative z-20">
         
         <div className="bg-white rounded-[32px] p-8 md:p-12 shadow-2xl shadow-indigo-900/5 mb-8 border border-slate-100 flex flex-col md:flex-row gap-8 items-start">
-          <div className="w-24 h-24 md:w-32 md:h-32 rounded-3xl bg-indigo-100 text-indigo-700 font-black text-4xl md:text-5xl flex items-center justify-center shrink-0 shadow-inner border-4 border-white">
-            {candidate.name.charAt(0).toUpperCase()}
+          <div className="w-24 h-24 md:w-32 md:h-32 rounded-3xl bg-indigo-100 text-indigo-700 font-black text-4xl md:text-5xl flex items-center justify-center shrink-0 shadow-inner border-4 border-white overflow-hidden">
+            {candidate.avatarUrl ? (
+              <img src={`http://localhost:4000${candidate.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+            ) : (
+              candidate.name.charAt(0).toUpperCase()
+            )}
           </div>
           
           <div className="flex-1 w-full">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
               <h1 className="text-3xl md:text-4xl font-black text-slate-900">{candidate.name}</h1>
               
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                {application.cvUrl && (
+                  <a href={`http://localhost:4000${application.cvUrl}`} target="_blank" rel="noreferrer" className="px-4 h-12 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl font-bold flex items-center gap-2 shadow-sm transition-all">
+                    <FileText className="w-5 h-5 text-indigo-600" /> CV Görüntüle
+                  </a>
+                )}
+                <a href={`mailto:${candidate.email}`} className="px-4 h-12 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl font-bold flex items-center gap-2 shadow-sm transition-all border border-indigo-200">
+                  <MessageSquare className="w-5 h-5" /> Mesaj Gönder
+                </a>
                 {application.status === 'pending' && (
                   <>
                     <button 

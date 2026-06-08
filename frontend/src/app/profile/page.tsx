@@ -191,7 +191,7 @@ export default function ProfilePage() {
   const [certForm, setCertForm] = useState({ name: "", issuer: "", issueDate: "", expirationDate: "", credentialUrl: "" });
   const [langForm, setLangForm] = useState({ language: "", level: "" });
   const [skillForm, setSkillForm] = useState({ skillName: "" });
-  const [prefForm, setPrefForm] = useState({ salaryMin: "", salaryMax: "", currency: "TRY", workModels: "", preferredCities: "", preferredWorkingHours: "", employmentTypes: "", preferredSchedule: [] as any[] });
+  const [prefForm, setPrefForm] = useState({ salaryMin: "", currency: "TRY", workModels: "", preferredCities: "", preferredWorkingHours: "", employmentTypes: "", preferredSchedule: [] as any[] });
   const [mainProfileForm, setMainProfileForm] = useState({
     name: "", title: "", phone: "", birthDate: "", gender: "", city: "", district: "",
     militaryStatus: "", driverLicense: "", linkedinUrl: "", githubUrl: "", portfolioUrl: ""
@@ -425,7 +425,6 @@ export default function ProfilePage() {
     try {
       const payload = {
         salaryMin: prefForm.salaryMin ? Number(prefForm.salaryMin) : undefined,
-        salaryMax: prefForm.salaryMax ? Number(prefForm.salaryMax) : undefined,
         currency: prefForm.currency || "TRY",
         workModels: prefForm.workModels ? prefForm.workModels.split(",").map(s => s.trim()) : [],
         preferredCities: prefForm.preferredCities ? prefForm.preferredCities.split(",").map(s => s.trim()) : [],
@@ -626,10 +625,10 @@ export default function ProfilePage() {
                       </div>
                       <ExternalLink className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </Link>
-                    <Link href="/profile/saved-jobs" className="w-full flex items-center justify-between p-3 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 transition-colors group">
+                    <Link href="/profile/saved" className="w-full flex items-center justify-between p-3 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 transition-colors group">
                       <div className="flex items-center gap-2">
                         <Heart className="w-4 h-4" />
-                        <span className="font-bold text-sm">Kaydedilen İlanlar</span>
+                        <span className="font-bold text-sm">Favori İlanlarım</span>
                       </div>
                       <ExternalLink className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </Link>
@@ -983,7 +982,6 @@ export default function ProfilePage() {
                       onClick={() => {
                         setPrefForm({
                           salaryMin: user.preferences?.salaryMin?.toString() || "",
-                          salaryMax: user.preferences?.salaryMax?.toString() || "",
                           currency: user.preferences?.currency || "TRY",
                           workModels: user.preferences?.workModels?.join(", ") || "",
                           preferredCities: user.preferences?.preferredCities?.join(", ") || "",
@@ -1003,15 +1001,17 @@ export default function ProfilePage() {
                       <div>
                         <h3 className="text-xs md:text-sm font-bold text-slate-400 uppercase mb-1">Maaş Beklentisi</h3>
                         <div className="text-sm font-semibold text-slate-900">
-                          {user.preferences?.salaryMin || user.preferences?.salaryMax
-                            ? `${user.preferences.salaryMin || 0} - ${user.preferences.salaryMax || "Belirtilmemiş"} ${user.preferences.currency}`
+                          {user.preferences?.salaryMin
+                            ? `Minimum ${user.preferences.salaryMin} ${user.preferences.currency}`
                             : "Belirtilmemiş"}
                         </div>
                       </div>
                       <div>
-                        <h3 className="text-xs md:text-sm font-bold text-slate-400 uppercase mb-1">Çalışma Şekli</h3>
+                        <h3 className="text-xs md:text-sm font-bold text-slate-400 uppercase mb-1">Çalışma Modeli</h3>
                         <div className="text-sm font-semibold text-slate-900">
-                          {user.preferences?.workModels && user.preferences.workModels.length > 0 ? user.preferences.workModels.join(", ") : "Belirtilmemiş"}
+                          {user.preferences?.workModels && user.preferences.workModels.length > 0 
+                            ? user.preferences.workModels.map((w: string) => ({ remote: "Uzaktan (Remote)", onsite: "Yüz Yüze (Onsite)", hybrid: "Hibrit (Hybrid)" }[w] || w)).join(", ") 
+                            : "Belirtilmemiş"}
                         </div>
                       </div>
                       <div className="md:col-span-2">
@@ -1256,18 +1256,16 @@ export default function ProfilePage() {
       {editModal === "preferences" && (
         <SectionModal title="İş Tercihlerini Düzenle" onClose={() => setEditModal(null)}>
           <form onSubmit={handleSavePref} className="space-y-3">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div><label className="block text-xs md:text-sm font-bold text-slate-500 uppercase mb-1">Min Maaş</label>
                 <input type="number" value={prefForm.salaryMin} onChange={e => setPrefForm({...prefForm, salaryMin: e.target.value})} className="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm focus:border-indigo-500 outline-none" /></div>
-              <div><label className="block text-xs md:text-sm font-bold text-slate-500 uppercase mb-1">Max Maaş</label>
-                <input type="number" value={prefForm.salaryMax} onChange={e => setPrefForm({...prefForm, salaryMax: e.target.value})} className="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm focus:border-indigo-500 outline-none" /></div>
               <div><label className="block text-xs md:text-sm font-bold text-slate-500 uppercase mb-1">Birim</label>
                 <select value={prefForm.currency} onChange={e => setPrefForm({...prefForm, currency: e.target.value})} className="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm focus:border-indigo-500 outline-none">
                   <option value="TRY">₺ TRY</option><option value="USD">$ USD</option><option value="EUR">€ EUR</option>
                 </select></div>
             </div>
             <div>
-              <label className="block text-xs md:text-sm font-bold text-slate-500 uppercase mb-1">Çalışma Şekli (Çoklu Seçim)</label>
+              <label className="block text-xs md:text-sm font-bold text-slate-500 uppercase mb-1">Çalışma Modeli (Çoklu Seçim)</label>
               <div className="flex flex-wrap gap-3">
                 {[
                   { id: "remote", label: "Uzaktan (Remote)" },
