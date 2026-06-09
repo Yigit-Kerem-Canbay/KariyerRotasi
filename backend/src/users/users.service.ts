@@ -197,14 +197,24 @@ export class UsersService {
   // PROFILE CRUD
   // ============================================================
   async upsertProfile(userId: string, data: any) {
+    const { phone, ...profileData } = data;
+
+    // Update phone in User model if provided
+    if (phone !== undefined) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { phone },
+      });
+    }
+
     const existing = await this.prisma.userProfile.findUnique({
       where: { userId },
     });
 
     const result = await this.prisma.userProfile.upsert({
       where: { userId },
-      update: data,
-      create: { userId, ...data },
+      update: profileData,
+      create: { userId, ...profileData },
     });
 
     await this.logAudit(
@@ -213,7 +223,7 @@ export class UsersService {
       'PROFILE',
       result.id,
       existing,
-      data,
+      profileData,
     );
 
     return result;

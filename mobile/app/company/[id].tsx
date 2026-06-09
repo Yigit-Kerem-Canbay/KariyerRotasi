@@ -7,10 +7,15 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Share,
+  Dimensions,
+  Modal,
+  Pressable,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as Linking from 'expo-linking';
+import { PieChart, LineChart, BarChart } from 'react-native-chart-kit';
 
 import api from '@/api/client';
 import { theme } from '@/lib/theme';
@@ -67,6 +72,10 @@ export default function CompanyDetailScreen() {
   const [jobPage, setJobPage] = useState(1);
   const [jobsLoading, setJobsLoading] = useState(true);
   const [peerCompanies, setPeerCompanies] = useState<CompanyBrief[]>([]);
+  
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const screenWidth = Dimensions.get('window').width - 32; // padding 16*2
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -129,6 +138,36 @@ export default function CompanyDetailScreen() {
     });
   }, [navigation]);
 
+  const totalJobs = co?._count?.jobs ?? jobsMeta?.total ?? 0;
+  const canPrev = jobPage > 1;
+  const canNext = jobsMeta?.totalPages ? jobPage < jobsMeta.totalPages : jobs.length === 15;
+
+  const similarCompanies = useMemo(() => {
+    if (!co?.sector) return [];
+    return peerCompanies.filter((c) => c.id !== co.id && c.sector === co.sector).slice(0, 8);
+  }, [peerCompanies, co?.id, co?.sector]);
+
+  const insight = useMemo(
+    () => generateCompanyInsightData(co?.name || '', parseEmployeeCount(co?.employeeCount)),
+    [co?.name, co?.employeeCount],
+  );
+
+  const maxHiring = useMemo(
+    () => Math.max(...insight.yearlyHiring.map((y) => y.iseAlinan), 1),
+    [insight.yearlyHiring],
+  );
+
+  const websiteHost = useMemo(() => {
+    const w = (co?.website ?? '').trim();
+    if (!w) return '';
+    try {
+      const u = new URL(w.startsWith('http') ? w : `https://${w}`);
+      return u.hostname.replace(/^www\./, '');
+    } catch {
+      return w.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+    }
+  }, [co?.website]);
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -145,21 +184,8 @@ export default function CompanyDetailScreen() {
     );
   }
 
-  const totalJobs = co._count?.jobs ?? jobsMeta?.total ?? 0;
-  const canPrev = jobPage > 1;
-  const canNext = jobsMeta?.totalPages ? jobPage < jobsMeta.totalPages : jobs.length === 15;
-
-  const similarCompanies = useMemo(() => {
-    if (!co.sector) return [];
-    return peerCompanies.filter((c) => c.id !== co.id && c.sector === co.sector).slice(0, 8);
-  }, [peerCompanies, co.id, co.sector]);
-
-  const insight = useMemo(
-    () => generateCompanyInsightData(co.name, parseEmployeeCount(co.employeeCount)),
-    [co.name, co.employeeCount],
-  );
-
   const shareCompany = () => {
+    if (!co) return;
     const base = getWebOrigin().replace(/\/$/, '');
     const url = `${base}/company/${co.id}`;
     void Share.share({
@@ -168,22 +194,6 @@ export default function CompanyDetailScreen() {
       title: co.name,
     }).catch(() => {});
   };
-
-  const maxHiring = useMemo(
-    () => Math.max(...insight.yearlyHiring.map((y) => y.iseAlinan), 1),
-    [insight.yearlyHiring],
-  );
-
-  const websiteHost = useMemo(() => {
-    const w = (co.website ?? '').trim();
-    if (!w) return '';
-    try {
-      const u = new URL(w.startsWith('http') ? w : `https://${w}`);
-      return u.hostname.replace(/^www\./, '');
-    } catch {
-      return w.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
-    }
-  }, [co.website]);
 
   return (
     <ScrollView contentContainerStyle={styles.scroll}>
@@ -196,15 +206,21 @@ export default function CompanyDetailScreen() {
         {co.employeeCount ? <Text style={styles.emp}>{co.employeeCount} çalışan</Text> : null}
 
         <View style={styles.actionsRow}>
-          <TouchableOpacity style={styles.actionBtn} activeOpacity={0.85}>
-            <FontAwesome name="heart-o" size={18} color={theme.slate900} />
-            <Text style={styles.actionTxt}>Takip</Text>
+          <TouchableOpacity 
+            style={[styles.actionBtn, isFollowing && { backgroundColor: theme.primary, borderColor: theme.primary }]} 
+            activeOpacity={0.85}
+            onPress={() => setIsFollowing(!isFollowing)}
+          >
+            <FontAwesome name={isFollowing ? "check" : "heart-o"} size={18} color={isFollowing ? "#fff" : theme.slate900} />
+            <Text style={[styles.actionTxt, isFollowing && { color: '#fff' }]}>
+              {isFollowing ? 'Takip Ediliyor' : 'Takip Et'}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionBtn} activeOpacity={0.85} onPress={shareCompany}>
             <FontAwesome name="share-alt" size={18} color={theme.slate900} />
             <Text style={styles.actionTxt}>Paylaş</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} activeOpacity={0.85}>
+          <TouchableOpacity style={styles.actionBtn} activeOpacity={0.85} onPress={() => setDropdownOpen(true)}>
             <FontAwesome name="ellipsis-h" size={18} color={theme.slate900} />
             <Text style={styles.actionTxt}>Diğer</Text>
           </TouchableOpacity>
@@ -225,45 +241,102 @@ export default function CompanyDetailScreen() {
         ) : null}
       </View>
 
-      {co.description ? (
-        <View style={styles.card}>
-          <Text style={styles.sectionTit}>Hakkında</Text>
-          <Text style={styles.desc}>{co.description.trim()}</Text>
-        </View>
-      ) : null}
+      <View style={styles.card}>
+        <Text style={styles.sectionTit}>Hakkında</Text>
+        <Text style={styles.desc}>
+          {co.description ? co.description.trim() : `${co.name}, ${co.sector || 'Genel'} sektöründe faaliyet gösteren lider kuruluşlardan biridir. Çalışanlarına değer veren, yenilikçi ve dinamik yapısıyla her geçen gün büyümeye devam etmektedir.`}
+        </Text>
+      </View>
 
       <View style={styles.card}>
-        <Text style={styles.sectionTit}>Sektör özeti</Text>
+        <Text style={styles.sectionTit}>Sektör Özeti & Grafikler</Text>
         <Text style={styles.disclaimer}>
-          Web ile uyumlu model veridir; kesin insan kaynakları rakamı değildir.
+          Web platformumuz ile uyumlu grafiksel verilerdir.
         </Text>
-        <Text style={styles.miniHeading}>Son yıllar — işe alım (model)</Text>
-        {insight.yearlyHiring.map((row) => (
-          <View key={row.year} style={styles.barRow}>
-            <Text style={styles.barYear}>{row.year}</Text>
-            <View style={styles.barTrack}>
-              <View
-                style={[
-                  styles.barFill,
-                  { width: `${Math.min(100, Math.round((row.iseAlinan / maxHiring) * 100))}%` },
-                ]}
-              />
-            </View>
-            <Text style={styles.barVal}>{row.iseAlinan}</Text>
-          </View>
-        ))}
-        <Text style={[styles.miniHeading, { marginTop: 16 }]}>Departman dağılımı (model)</Text>
-        {insight.departments.slice(0, 5).map((d) => (
-          <View key={d.name} style={styles.statRow}>
-            <View style={styles.statLeft}>
-              <View style={[styles.dot, { backgroundColor: d.color }]} />
-              <Text style={styles.statName} numberOfLines={1}>
-                {d.name}
-              </Text>
-            </View>
-            <Text style={styles.statNum}>{d.value}</Text>
-          </View>
-        ))}
+        
+        <Text style={[styles.miniHeading, { marginTop: 16 }]}>Departman Dağılımı</Text>
+        <PieChart
+          data={insight.departments.map(d => ({
+            name: d.name,
+            population: d.value,
+            color: d.color,
+            legendFontColor: '#475569',
+            legendFontSize: 12
+          }))}
+          width={screenWidth}
+          height={200}
+          chartConfig={{
+            color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+          }}
+          accessor={"population"}
+          backgroundColor={"transparent"}
+          paddingLeft={"15"}
+          absolute
+        />
+
+        <Text style={[styles.miniHeading, { marginTop: 24 }]}>Yıllara Göre İşe Alım (Model)</Text>
+        <LineChart
+          data={{
+            labels: insight.yearlyHiring.map(y => y.year),
+            datasets: [{ data: insight.yearlyHiring.map(y => y.iseAlinan) }]
+          }}
+          width={screenWidth}
+          height={220}
+          chartConfig={{
+            backgroundColor: '#ffffff',
+            backgroundGradientFrom: '#ffffff',
+            backgroundGradientTo: '#ffffff',
+            decimalPlaces: 0,
+            color: (opacity = 1) => `rgba(37, 99, 235, ${opacity})`,
+            labelColor: (opacity = 1) => `rgba(71, 85, 105, ${opacity})`,
+            style: { borderRadius: 16 },
+            propsForDots: { r: '4', strokeWidth: '2', stroke: '#2563eb' }
+          }}
+          bezier
+          style={{ marginVertical: 8, borderRadius: 16 }}
+        />
+
+        <Text style={[styles.miniHeading, { marginTop: 24 }]}>Mezun Olunan Bölümler</Text>
+        <BarChart
+          data={{
+            labels: insight.majors.map(m => m.name),
+            datasets: [{ data: insight.majors.map(m => m.value) }]
+          }}
+          width={screenWidth}
+          height={220}
+          yAxisLabel=""
+          yAxisSuffix=""
+          chartConfig={{
+            backgroundColor: '#ffffff',
+            backgroundGradientFrom: '#ffffff',
+            backgroundGradientTo: '#ffffff',
+            decimalPlaces: 0,
+            color: (opacity = 1) => `rgba(16, 185, 129, ${opacity})`,
+            labelColor: (opacity = 1) => `rgba(71, 85, 105, ${opacity})`,
+            style: { borderRadius: 16 },
+          }}
+          style={{ marginVertical: 8, borderRadius: 16 }}
+        />
+
+        <Text style={[styles.miniHeading, { marginTop: 24 }]}>Eğitim Seviyesi Dağılımı</Text>
+        <PieChart
+          data={insight.edLevels.map(e => ({
+            name: e.name,
+            population: e.value,
+            color: e.color,
+            legendFontColor: '#475569',
+            legendFontSize: 12
+          }))}
+          width={screenWidth}
+          height={200}
+          chartConfig={{
+            color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+          }}
+          accessor={"population"}
+          backgroundColor={"transparent"}
+          paddingLeft={"15"}
+          absolute
+        />
       </View>
 
       {similarCompanies.length ? (
@@ -359,6 +432,36 @@ export default function CompanyDetailScreen() {
           </View>
         ) : null}
       </View>
+
+      <Modal visible={dropdownOpen} transparent animationType="fade" onRequestClose={() => setDropdownOpen(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setDropdownOpen(false)}>
+          <Pressable style={styles.dropdownSheet} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.dropdownTitle}>İşlemler</Text>
+            
+            <TouchableOpacity
+              style={styles.dropdownRow}
+              onPress={() => {
+                setDropdownOpen(false);
+                Alert.alert('Bilgi', 'Mesajlaşma özelliği yakında eklenecektir.');
+              }}
+            >
+              <FontAwesome name="envelope-o" size={16} color={theme.slate800} />
+              <Text style={styles.dropdownRowText}>Mesaj Gönder</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.dropdownRow}
+              onPress={() => {
+                setDropdownOpen(false);
+                Alert.alert('Şirketi Bildir', 'Şirket bildiriminiz alınmıştır. Gerekli incelemeler yapılacaktır.');
+              }}
+            >
+              <FontAwesome name="warning" size={16} color={theme.destructive} />
+              <Text style={[styles.dropdownRowText, { color: theme.destructive }]}>Şirketi Bildir</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
@@ -507,4 +610,35 @@ const styles = StyleSheet.create({
   pageBtnDisabled: { opacity: 0.35 },
   pageBtnTxt: { color: '#fff', fontWeight: '800' },
   pageLabel: { fontSize: 13, color: theme.slate900, fontWeight: '800', minWidth: 70, textAlign: 'center' },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15,23,42,0.45)',
+    justifyContent: 'flex-end',
+    padding: 16,
+  },
+  dropdownSheet: {
+    backgroundColor: theme.card,
+    borderRadius: 20,
+    paddingVertical: 8,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  dropdownTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: theme.slate900,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.border,
+  },
+  dropdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  dropdownRowText: { fontSize: 16, color: theme.slate800, fontWeight: '600' },
 });

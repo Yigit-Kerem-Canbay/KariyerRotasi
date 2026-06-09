@@ -65,7 +65,11 @@ function RootLayoutNav() {
   useEffect(() => {
     const inAuthGroup = segments[0] === '(auth)';
     if (user && inAuthGroup) {
-      router.replace('/(tabs)');
+      if (user.role === "individual_employer" || user.role === "corporate_employer") {
+        router.replace('/(employer-tabs)' as any);
+      } else {
+        router.replace('/(tabs)');
+      }
     }
   }, [user, segments, router]);
 
@@ -75,6 +79,7 @@ function RootLayoutNav() {
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <Stack screenOptions={{ contentStyle: { backgroundColor: theme.background } }}>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="(employer-tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
             <Stack.Screen
               name="job/[id]"

@@ -41,10 +41,8 @@ export default function CompaniesTabScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sectorPick, setSectorPick] = useState('Tümü');
-  const [locationPick, setLocationPick] = useState('Tümü');
+  const [sectorPicks, setSectorPicks] = useState<string[]>([]);
   const [sectorOpen, setSectorOpen] = useState(false);
-  const [locOpen, setLocOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -67,15 +65,7 @@ export default function CompaniesTabScreen() {
     return ['Tümü', ...Array.from(s).sort((a, b) => a.localeCompare(b, 'tr'))];
   }, [companies]);
 
-  const locations = useMemo(() => {
-    const l = new Set(
-      companies.flatMap((c) => {
-        const loc = (c.location ?? '').trim();
-        return loc ? [loc] : [];
-      }),
-    );
-    return ['Tümü', ...Array.from(l).sort((a, b) => a.localeCompare(b, 'tr'))];
-  }, [companies]);
+
 
   const filtered = useMemo(() => {
     return companies.filter((c) => {
@@ -85,19 +75,17 @@ export default function CompaniesTabScreen() {
         c.name.toLocaleLowerCase('tr-TR').includes(q) ||
         !!(c.description && c.description.toLocaleLowerCase('tr-TR').includes(q));
       const okSector =
-        sectorPick === 'Tümü' || (c.sector || 'Genel') === sectorPick;
-      const okLoc =
-        locationPick === 'Tümü' ? true : (c.location || '') === locationPick;
-      return okSearch && okSector && okLoc;
+        sectorPicks.length === 0 || sectorPicks.includes(c.sector || 'Genel');
+      return okSearch && okSector;
     });
-  }, [companies, searchTerm, sectorPick, locationPick]);
+  }, [companies, searchTerm, sectorPicks]);
 
   // Mobil performansı için client-side sayfalama (310 şirkette yeterli)
   const [page, setPage] = useState(1);
   const perPage = 30;
   useEffect(() => {
     setPage(1);
-  }, [searchTerm, sectorPick, locationPick]);
+  }, [searchTerm, sectorPicks]);
 
   const sortedDisplay = useMemo(() => {
     const list = [...filtered];
@@ -162,19 +150,12 @@ export default function CompaniesTabScreen() {
         </View>
 
         <View style={styles.pickRow}>
-          <TouchableOpacity style={styles.pickerChip} activeOpacity={0.85} onPress={() => setSectorOpen(true)}>
+          <TouchableOpacity style={[styles.pickerChip, { maxWidth: '100%' }]} activeOpacity={0.85} onPress={() => setSectorOpen(true)}>
             <FontAwesome name="industry" size={14} color="#fff" style={{ marginRight: 8 }} />
             <Text style={styles.pickerChipText} numberOfLines={1}>
-              Sektör: {sectorPick}
+              Sektör: {sectorPicks.length > 0 ? sectorPicks.join(', ') : 'Tümü'}
             </Text>
             <FontAwesome name="caret-down" size={14} color="#fff" style={{ marginLeft: 8 }} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.pickerChipSecondary} activeOpacity={0.85} onPress={() => setLocOpen(true)}>
-            <FontAwesome name="map-marker" size={14} color={theme.heroIndigo} style={{ marginRight: 8 }} />
-            <Text style={styles.pickerChipSecondaryText} numberOfLines={1}>
-              {locationPick}
-            </Text>
-            <FontAwesome name="caret-down" size={14} color={theme.heroIndigo} style={{ marginLeft: 8 }} />
           </TouchableOpacity>
         </View>
       </View>
@@ -219,8 +200,7 @@ export default function CompaniesTabScreen() {
         />
       )}
 
-      <PickModal visible={sectorOpen} title="Sektör" items={sectors} selected={sectorPick} onPick={setSectorPick} onClose={() => setSectorOpen(false)} />
-      <PickModal visible={locOpen} title="Şehir" items={locations} selected={locationPick} onPick={setLocationPick} onClose={() => setLocOpen(false)} />
+      <PickModal visible={sectorOpen} title="Sektör" items={sectors} selected={sectorPicks} onPick={setSectorPicks} onClose={() => setSectorOpen(false)} />
     </SafeAreaView>
   );
 }
@@ -236,8 +216,8 @@ function PickModal({
   visible: boolean;
   title: string;
   items: string[];
-  selected: string;
-  onPick: (x: string) => void;
+  selected: string[];
+  onPick: (x: string[]) => void;
   onClose: () => void;
 }) {
   return (
@@ -252,18 +232,25 @@ function PickModal({
         <FlatList
           data={items}
           keyExtractor={(x) => x}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={modalStyles.opt}
-              onPress={() => {
-                onPick(item);
-                onClose();
-              }}
-            >
-              <Text style={[modalStyles.optText, selected === item && modalStyles.optTextActive]}>{item}</Text>
-              {selected === item ? <FontAwesome name="check" size={18} color={theme.primary} /> : null}
-            </TouchableOpacity>
-          )}
+          renderItem={({ item }) => {
+            const isSelected = item === 'Tümü' ? selected.length === 0 : selected.includes(item);
+            return (
+              <TouchableOpacity
+                style={modalStyles.opt}
+                onPress={() => {
+                  if (item === 'Tümü') {
+                    onPick([]);
+                  } else {
+                    const next = selected.includes(item) ? selected.filter(x => x !== item) : [...selected, item];
+                    onPick(next);
+                  }
+                }}
+              >
+                <Text style={[modalStyles.optText, isSelected && modalStyles.optTextActive]}>{item}</Text>
+                {isSelected ? <FontAwesome name="check" size={18} color={theme.primary} /> : null}
+              </TouchableOpacity>
+            );
+          }}
           contentContainerStyle={{ paddingBottom: 32 }}
         />
       </SafeAreaView>

@@ -46,7 +46,7 @@ export const WORK_MODEL_CONFIG = [
 export const SORT_OPTIONS = [
   { value: 'newest', label: 'En yeni' },
   { value: 'oldest', label: 'En eski' },
-  { value: 'recommended', label: 'Öne çıkan' },
+  { value: 'recommended', label: 'Kişiye Özel (AI)' },
   { value: 'salaryDesc', label: 'Maaş (yüksek)' },
   { value: 'salaryAsc', label: 'Maaş (düşük)' },
 ] as const;
@@ -63,7 +63,6 @@ export type JobFilterState = {
   militaryStatuses: string[];
   remoteOnly: boolean;
   salaryMinGte: string;
-  salaryMaxLte: string;
 };
 
 export function emptyJobFilters(): JobFilterState {
@@ -77,6 +76,5 @@ export function emptyJobFilters(): JobFilterState {
     militaryStatuses: [],
     remoteOnly: false,
     salaryMinGte: '',
-    salaryMaxLte: '',
   };
 }

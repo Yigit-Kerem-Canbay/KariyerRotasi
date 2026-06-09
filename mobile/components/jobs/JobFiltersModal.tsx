@@ -105,7 +105,18 @@ export function JobFiltersModal({
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          <Section title="Şehirler">
+          <Section title="">
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, marginTop: -15 }}>
+              <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Şehirler</Text>
+              <TouchableOpacity onPress={() => {
+                const allSelected = draft.cities.length === TURKISH_PROVINCES_ALPHABETICAL.length;
+                setDraft(d => ({ ...d, cities: allSelected ? [] : [...TURKISH_PROVINCES_ALPHABETICAL] }));
+              }}>
+                <Text style={{ color: theme.primary, fontSize: 13, fontWeight: '600' }}>
+                  {draft.cities.length === TURKISH_PROVINCES_ALPHABETICAL.length ? 'Tümünü Temizle' : 'Tümünü Seç'}
+                </Text>
+              </TouchableOpacity>
+            </View>
             <View style={styles.chipWrap}>
               {TURKISH_PROVINCES_ALPHABETICAL.map((city) => (
                 <Chip
@@ -225,10 +236,10 @@ export function JobFiltersModal({
             <Text style={styles.remoteLabel}>Yalnızca uzaktan / remote</Text>
           </TouchableOpacity>
 
-          <Section title="Maaş (₺)">
+          <Section title="Maaş Beklentisi (₺)">
             <View style={styles.salaryRow}>
               <View style={styles.salaryField}>
-                <Text style={styles.salaryHint}>Min. (≥)</Text>
+                <Text style={styles.salaryHint}>Minimum</Text>
                 <TextInput
                   style={styles.input}
                   keyboardType="number-pad"
@@ -236,17 +247,6 @@ export function JobFiltersModal({
                   placeholderTextColor={theme.muted}
                   value={draft.salaryMinGte}
                   onChangeText={(t) => setDraft((d) => ({ ...d, salaryMinGte: t }))}
-                />
-              </View>
-              <View style={styles.salaryField}>
-                <Text style={styles.salaryHint}>Max. (≤)</Text>
-                <TextInput
-                  style={styles.input}
-                  keyboardType="number-pad"
-                  placeholder="örn. 80000"
-                  placeholderTextColor={theme.muted}
-                  value={draft.salaryMaxLte}
-                  onChangeText={(t) => setDraft((d) => ({ ...d, salaryMaxLte: t }))}
                 />
               </View>
             </View>

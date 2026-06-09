@@ -7,6 +7,8 @@ import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { ArrowLeft, Users, Mail, MapPin, Zap, ExternalLink, ShieldCheck, CheckCircle, XCircle, Clock3 } from 'lucide-react';
 
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api').replace('/api', '');
+
 export default function EmployerApplicantsPage() {
   const { id: jobId } = useParams<{ id: string }>();
   const [applicants, setApplicants] = useState<any[]>([]);
@@ -112,7 +114,7 @@ export default function EmployerApplicantsPage() {
                   <div className="flex-1 flex items-start gap-4">
                     <div className="w-14 h-14 rounded-full bg-indigo-100 text-indigo-700 font-black text-xl flex items-center justify-center shrink-0 overflow-hidden">
                       {app.user.avatarUrl ? (
-                        <img src={`http://localhost:4000${app.user.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                        <img src={app.user.avatarUrl.startsWith('http') ? app.user.avatarUrl : `${API_BASE}${app.user.avatarUrl}`} alt="" className="w-full h-full object-cover" />
                       ) : (
                         app.user.name.charAt(0).toUpperCase()
                       )}

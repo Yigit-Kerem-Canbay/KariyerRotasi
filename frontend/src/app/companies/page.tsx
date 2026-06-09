@@ -27,7 +27,6 @@ export default function CompaniesPage() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSector, setSelectedSector] = useState('Tümü');
-  const [selectedLocation, setSelectedLocation] = useState('Tümü');
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
@@ -50,10 +49,7 @@ export default function CompaniesPage() {
     return ['Tümü', ...Array.from(s).sort((a, b) => a.localeCompare(b, 'tr'))];
   }, [companies]);
 
-  const locations = useMemo(() => {
-    const l = new Set(companies.map((c) => c.location).filter(Boolean));
-    return ['Tümü', ...Array.from(l).sort((a, b) => a.localeCompare(b, 'tr'))];
-  }, [companies]);
+
 
   const filteredCompanies = useMemo(() => {
     return companies.filter((company) => {
@@ -64,11 +60,9 @@ export default function CompaniesPage() {
           company.description.toLocaleLowerCase('tr-TR').includes(q));
       const matchesSector =
         selectedSector === 'Tümü' || (company.sector || 'Genel') === selectedSector;
-      const matchesLocation =
-        selectedLocation === 'Tümü' || company.location === selectedLocation;
-      return matchesSearch && matchesSector && matchesLocation;
+      return matchesSearch && matchesSector;
     });
-  }, [companies, searchTerm, selectedSector, selectedLocation]);
+  }, [companies, searchTerm, selectedSector]);
 
   /** Sunum için: logosu olan (dosyayı eşleştirebildiğimiz) şirketler üstte, sonra alfabetik */
   const sortedForDisplay = useMemo(() => {
@@ -92,7 +86,7 @@ export default function CompaniesPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedSector, selectedLocation]);
+  }, [searchTerm, selectedSector]);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-24">
@@ -140,20 +134,7 @@ export default function CompaniesPage() {
               </select>
             </div>
 
-            <div className="relative flex-1 md:w-48">
-              <MapPin className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <select
-                value={selectedLocation}
-                onChange={(e) => setSelectedLocation(e.target.value)}
-                className="h-12 w-full cursor-pointer appearance-none rounded-2xl border border-gray-200 bg-gray-50 pl-10 pr-8 text-[14px] font-medium outline-none transition-all focus:border-indigo-500 focus:bg-white"
-              >
-                {locations.map((loc: string) => (
-                  <option key={loc} value={loc}>
-                    {loc}
-                  </option>
-                ))}
-              </select>
-            </div>
+
           </div>
         </div>
 

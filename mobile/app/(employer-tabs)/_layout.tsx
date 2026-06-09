@@ -6,7 +6,7 @@ import { Platform } from 'react-native';
 
 import { theme } from '@/lib/theme';
 
-export default function TabLayout() {
+export default function EmployerTabLayout() {
   const insets = useSafeAreaInsets();
   const bottomPad = Math.max(insets.bottom, 20);
 
@@ -33,26 +33,19 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Ana Sayfa',
-          tabBarIcon: ({ color }) => <Feather name="home" size={24} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="jobs"
-        options={{
-          title: 'İlanlar',
-          tabBarIcon: ({ color }) => <Feather name="search" size={24} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="companies"
-        options={{
-          title: 'Şirketler',
+          title: 'İlanlarım',
           tabBarIcon: ({ color }) => <Feather name="briefcase" size={24} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="post-job"
+        options={{
+          title: 'Yeni İlan',
+          tabBarIcon: ({ color }) => <Feather name="plus-circle" size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="employer-profile"
         options={{
           title: 'Profil',
           tabBarIcon: ({ color }) => <Feather name="user" size={24} color={color} />,

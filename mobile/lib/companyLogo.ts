@@ -1,4 +1,4 @@
-import { getWebOrigin } from './config';
+import { getWebOrigin, getApiBaseUrl } from './config';
 
 /** public/logos altında gerçekten bulunan dosyalar — web ile aynı liste */
 export const LOGO_FILE_KEYS = new Set<string>([
@@ -107,5 +107,7 @@ export function resolveLogoFileKey(company: {
 }
 
 export function companyLogoAbsoluteUrl(key: string): string {
-  return `${getWebOrigin()}/logos/${key}.png`;
+  // Mobile app uses API origin for logos to avoid Android localhost:3000 unreachable issues
+  const baseUrl = getApiBaseUrl().replace(/\/api$/, '');
+  return `${baseUrl}/uploads/logos/${key}.png`;
 }

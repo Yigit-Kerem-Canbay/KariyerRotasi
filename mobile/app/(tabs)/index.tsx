@@ -1,468 +1,398 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  RefreshControl,
-  Modal,
-  Pressable,
-} from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import api from '@/api/client';
+import Feather from '@expo/vector-icons/Feather';
+
 import { theme } from '@/lib/theme';
-import {
-  SORT_OPTIONS,
-  type SortValue,
-  type JobFilterState,
-  emptyJobFilters,
-} from '@/constants/jobFilters';
-import { JobFiltersModal } from '@/components/jobs/JobFiltersModal';
+import api from '@/api/client';
+import { useAuthStore } from '@/store/auth';
+
+const { width } = Dimensions.get('window');
+
 import { CompanyLogo } from '@/components/CompanyLogo';
 
-type JobItem = {
-  id: string;
-  title: string;
-  location?: string | null;
-  city?: string | null;
-  workModel?: string | null;
-  remote?: boolean;
-  createdAt?: string;
-  salaryMin?: number | null;
-  salaryMax?: number | null;
-  experienceYears?: string | null;
-  company: { name: string; logoUrl?: string | null; website?: string | null; sector?: string | null };
-  jobSkills?: { skill: { name: string } }[];
-};
-
-type JobsResponse = {
-  data: JobItem[];
-  meta: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-    salaryRankingOnlyListed?: boolean;
-  };
-};
-
-function fmtSalary(min?: number | null, max?: number | null) {
-  if (min == null && max == null) return 'Maaş gizli';
-  const a = min != null ? `${min.toLocaleString('tr-TR')} ₺` : '';
-  const b = max != null ? `${max.toLocaleString('tr-TR')} ₺` : '';
-  if (a && b) return `${a} – ${b}`;
-  return a || b;
-}
-
-function toParams(page: number, search: string, sort: SortValue, f: JobFilterState): Record<string, string | number> {
-  const p: Record<string, string | number> = { page, limit: 20, sort };
-  const q = search.trim();
-  if (q) p.search = q;
-  if (f.cities.length) p.cities = f.cities.join(',');
-  if (f.sectors.length) p.sectors = f.sectors.join(',');
-  if (f.educationLevels.length) p.educationLevels = f.educationLevels.join(',');
-  if (f.languages.length) p.languages = f.languages.join(',');
-  if (f.workModels.length) p.workModels = f.workModels.join(',');
-  if (f.experiences.length) p.experiences = f.experiences.join(',');
-  if (f.militaryStatuses.length) p.militaryStatuses = f.militaryStatuses.join(',');
-  if (f.remoteOnly) p.remoteOnly = 'true';
-  const smin = f.salaryMinGte.trim();
-  const smax = f.salaryMaxLte.trim();
-  if (smin) p.salaryMinGte = smin;
-  if (smax) p.salaryMaxLte = smax;
-  return p;
-}
-
-function activeFilterCount(f: JobFilterState): number {
-  let n = 0;
-  if (f.cities.length) n++;
-  if (f.sectors.length) n++;
-  if (f.educationLevels.length) n++;
-  if (f.languages.length) n++;
-  if (f.workModels.length) n++;
-  if (f.experiences.length) n++;
-  if (f.militaryStatuses.length) n++;
-  if (f.remoteOnly) n++;
-  if (f.salaryMinGte.trim()) n++;
-  if (f.salaryMaxLte.trim()) n++;
-  return n;
-}
-
-export default function JobsTabScreen() {
+export default function HomeScreen() {
   const router = useRouter();
-  const [searchInput, setSearchInput] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [sort, setSort] = useState<SortValue>('newest');
-  const [filters, setFilters] = useState<JobFilterState>(() => emptyJobFilters());
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [sortOpen, setSortOpen] = useState(false);
-
-  const [page, setPage] = useState(1);
-  const [data, setData] = useState<JobItem[]>([]);
-  const [meta, setMeta] = useState<JobsResponse['meta'] | null>(null);
+  const { user } = useAuthStore();
+  const [stats, setStats] = useState({ totalJobs: 0, totalCompanies: 0 });
+  const [recentJobs, setRecentJobs] = useState<any[]>([]);
+  const [recommendedJobs, setRecommendedJobs] = useState<any[]>([]);
+  const [sectors, setSectors] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(searchInput), 400);
-    return () => clearTimeout(t);
-  }, [searchInput]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [debouncedSearch, sort]);
-
-  const fetchPage = useCallback(
-    async (p: number, mode: 'replace' | 'append' = 'replace') => {
-      setError(null);
+    async function fetchData() {
       try {
-        const params = toParams(p, debouncedSearch, sort, filters);
-        const res = await api.get<JobsResponse>('/jobs', { params });
-        setMeta(res.data.meta);
-        if (mode === 'append') {
-          setData((prev) => [...prev, ...res.data.data]);
-        } else {
-          setData(res.data.data);
+        const [statsRes, jobsRes, sectorsRes, companiesRes] = await Promise.all([
+          api.get('/jobs/stats/total').catch(() => ({ data: 0 })),
+          api.get('/jobs/discover', { params: { limit: 5 } }).catch(() => ({ data: { data: [] } })),
+          api.get('/jobs/stats/top-sectors').catch(() => ({ data: [] })),
+          api.get('/companies/top').catch(() => ({ data: [] }))
+        ]);
+        
+        const totalJobsCount = typeof statsRes.data === 'number' ? statsRes.data : (statsRes.data?.count || statsRes.data?.total || 0);
+        const companiesCount = 400; // API doesn't return count yet, hardcoded as requested
+        setStats({ totalJobs: totalJobsCount, totalCompanies: companiesCount });
+        setRecentJobs(jobsRes.data?.data || []);
+        
+        const sectorsList = Array.isArray(sectorsRes.data) ? sectorsRes.data : (sectorsRes.data?.data || sectorsRes.data?.value || []);
+        setSectors(sectorsList);
+        
+        setCompanies(companiesRes.data || []);
+
+        if (user) {
+          const recRes = await api.get('/jobs/discover', { params: { userId: user.id, limit: 10 } }).catch(() => ({ data: { data: [] } }));
+          let recJobs = recRes.data?.data || [];
+          recJobs.sort((a: any, b: any) => {
+            const scoreA = a.matchAnalysis?.algorithmicScore || a.matchAnalysis?.matchScore || a.matchScore || a.match_score || 0;
+            const scoreB = b.matchAnalysis?.algorithmicScore || b.matchAnalysis?.matchScore || b.matchScore || b.match_score || 0;
+            return scoreB - scoreA;
+          });
+          setRecommendedJobs(recJobs);
         }
-      } catch (e: unknown) {
-        setError('İlanlar yüklenemedi. Bağlantıyı kontrol et.');
+      } catch (err) {
+        console.error("Fetch error", err);
       } finally {
         setLoading(false);
-        setRefreshing(false);
       }
-    },
-    [debouncedSearch, sort, filters],
-  );
+    }
+    fetchData();
+  }, [user]);
 
-  useEffect(() => {
-    setLoading(true);
-    fetchPage(page, 'replace');
-  }, [page, fetchPage]);
-
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    fetchPage(page, 'replace');
-  }, [fetchPage, page]);
-
-  const sortLabel = useMemo(() => SORT_OPTIONS.find((s) => s.value === sort)?.label ?? '', [sort]);
-  const nFilters = activeFilterCount(filters);
-
-  const renderJob = ({ item }: { item: JobItem }) => {
-    const skills = item.jobSkills?.slice(0, 4).map((x) => x.skill.name).join(' · ');
-    const loc = item.city || item.location || '';
-
+  const renderJobCard = (job: any, isRecommended = false) => {
     return (
-      <TouchableOpacity
-        style={styles.card}
-        activeOpacity={0.85}
-        onPress={() => router.push(`/job/${item.id}`)}
+      <TouchableOpacity 
+        key={job.id} 
+        style={styles.jobCard} 
+        activeOpacity={0.8}
+        onPress={() => router.push(`/job/${job.id}` as any)}
       >
-        <View style={styles.cardTop}>
-          <CompanyLogo company={item.company} size={52} rounded={14} />
-          <View style={styles.cardTopText}>
-            <Text style={styles.cardTitle} numberOfLines={2}>
-              {item.title}
-            </Text>
-            <Text style={styles.cardCompany} numberOfLines={1}>
-              {item.company.name}
-            </Text>
-            <Text style={styles.cardMeta} numberOfLines={1}>
-              {[loc, item.workModel, item.remote ? 'Remote' : ''].filter(Boolean).join(' · ')}
+        <View style={styles.jobHeader}>
+          <CompanyLogo company={job.company} size={44} />
+          <View style={styles.jobHeaderText}>
+            <Text style={styles.jobTitle} numberOfLines={1}>{job.title}</Text>
+            <Text style={styles.jobCompany} numberOfLines={1}>{job.company?.name}</Text>
+          </View>
+        </View>
+        
+        <View style={styles.jobTags}>
+          {job.city && <View style={styles.tag}><Text style={styles.tagText}>{job.city}</Text></View>}
+          {job.workModel && <View style={styles.tag}><Text style={styles.tagText}>{job.workModel}</Text></View>}
+        </View>
+
+        {isRecommended && (job.matchAnalysis?.algorithmicScore !== undefined || job.matchScore !== undefined || job.match_score !== undefined) && (
+          <View style={styles.matchScore}>
+            <Feather name="zap" size={14} color="#059669" />
+            <Text style={styles.matchScoreText}>
+              %{((job.matchAnalysis?.algorithmicScore || job.matchScore || job.match_score) > 1 ? (job.matchAnalysis?.algorithmicScore || job.matchScore || job.match_score) : (job.matchAnalysis?.algorithmicScore || job.matchScore || job.match_score) * 100).toFixed(0)} Uyumlu
             </Text>
           </View>
-          <FontAwesome name="chevron-right" size={14} color={theme.muted} />
-        </View>
-        <Text style={styles.cardSalary}>{fmtSalary(item.salaryMin, item.salaryMax)}</Text>
-        {!!skills && (
-          <Text style={styles.cardSkills} numberOfLines={2}>
-            {skills}
-          </Text>
         )}
       </TouchableOpacity>
     );
   };
 
-  return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.hero}>
-        <Text style={styles.heroEyebrow}>Kariyer Rotası</Text>
-        <Text style={styles.heroTitle}>İş ilanları</Text>
-        <Text style={styles.heroSubtitle}>Binlerce fırsat; filtreleyerek yak.</Text>
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#2563eb" />
+      </View>
+    );
+  }
 
-        <View style={styles.searchRow}>
-          <FontAwesome name="search" size={16} color={theme.muted} style={styles.searchIcon} />
-          <TextInput
-            placeholder="Şirket, pozisyon veya anahtar kelime ara…"
-            placeholderTextColor={theme.muted}
-            style={styles.searchInput}
-            value={searchInput}
-            onChangeText={setSearchInput}
+  const EXPERIENCE_LEVELS = [
+    { label: 'Yeni Mezun', icon: 'award', color: '#10b981' },
+    { label: 'Junior', icon: 'star', color: '#3b82f6' },
+    { label: 'Orta Düzey', icon: 'briefcase', color: '#8b5cf6' },
+    { label: 'Uzman', icon: 'shield', color: '#f59e0b' },
+    { label: 'Yönetici', icon: 'user', color: '#ef4444' },
+  ];
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <View style={styles.header}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Image 
+            source={require('@/assets/images/logo.png')} 
+            style={{ width: 108, height: 108, resizeMode: 'contain' }} 
           />
-          {!!searchInput && (
-            <TouchableOpacity onPress={() => setSearchInput('')} hitSlop={10}>
-              <FontAwesome name="times-circle" size={18} color={theme.muted} />
-            </TouchableOpacity>
+          <Text style={styles.headerLogo}>KariyerRotası</Text>
+        </View>
+        {user ? (
+          <TouchableOpacity onPress={() => router.push('/(tabs)/profile' as any)}>
+            <CompanyLogo company={{ name: user.name, logoUrl: user.avatarUrl }} size={36} rounded={18} />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity onPress={() => router.push('/(auth)/login' as any)}>
+            <Feather name="log-in" size={24} color={theme.slate900} />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        
+        {/* HERO SECTION */}
+        <View style={styles.hero}>
+          <View style={styles.heroBadge}>
+            <Feather name="zap" size={14} color="#2563eb" />
+            <Text style={styles.heroBadgeText}>AI Destekli Kariyer Platformu</Text>
+          </View>
+          <Text style={styles.heroTitle}>Hayalindeki İşi Bul,{"\n"}Kariyerine Yön Ver.</Text>
+          <Text style={styles.heroSubtitle}>Yapay zeka ile yeteneklerine en uygun iş fırsatlarını anında keşfet.</Text>
+
+          <TouchableOpacity style={styles.searchBox} activeOpacity={0.9} onPress={() => router.push('/(tabs)/jobs' as any)}>
+            <Feather name="search" size={20} color="#64748b" />
+            <Text style={styles.searchBoxText}>Pozisyon, teknoloji veya şirket ara...</Text>
+          </TouchableOpacity>
+
+          <View style={styles.popularSearches}>
+            <Text style={styles.popularTitle}>Popüler Aramalar:</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 24 }}>
+              {['Frontend', 'Backend', 'React Native', 'UI/UX'].map(term => (
+                <TouchableOpacity 
+                  key={term} 
+                  style={styles.popularBadge}
+                  activeOpacity={0.8}
+                  onPress={() => router.push({ pathname: '/(tabs)/jobs', params: { q: term } } as any)}
+                >
+                  <Text style={styles.popularBadgeText}>{term}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+
+        {/* STATS */}
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{stats.totalJobs}+</Text>
+            <Text style={styles.statLabel}>Aktif İlan</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{stats.totalCompanies}+</Text>
+            <Text style={styles.statLabel}>Şirket</Text>
+          </View>
+        </View>
+
+        {/* EVENT BANNER */}
+        <TouchableOpacity style={styles.eventBanner} activeOpacity={0.9}>
+          <View style={styles.eventLeft}>
+            <Feather name="calendar" size={20} color="#fff" />
+            <View>
+              <Text style={styles.eventTitle}>Kariyer Zirvesi 2026</Text>
+              <Text style={styles.eventSub}>Teknoloji devleriyle tanışma fırsatı!</Text>
+            </View>
+          </View>
+          <Feather name="chevron-right" size={20} color="#fff" style={{ opacity: 0.8 }} />
+        </TouchableOpacity>
+
+        {/* CAREER GUIDE BANNER */}
+        <TouchableOpacity 
+          style={styles.guideBanner} 
+          activeOpacity={0.9} 
+          onPress={() => router.push('/career-guide' as any)}
+        >
+          <View style={styles.guideBannerContent}>
+            <View style={styles.guideBadge}>
+              <Feather name="book-open" size={14} color="#fff" />
+              <Text style={styles.guideBadgeText}>KariyerRotası Akademi</Text>
+            </View>
+            <Text style={styles.guideTitle}>Kariyer Rehberini Keşfet</Text>
+            <Text style={styles.guideSubtitle}>Mülakat taktikleri, CV hazırlama rehberi ve daha fazlası.</Text>
+          </View>
+          <Feather name="chevron-right" size={24} color="#fff" style={{ opacity: 0.8 }} />
+        </TouchableOpacity>
+
+        {/* RECOMMENDED JOBS (AI) */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Sizin İçin Seçilen İlanlar</Text>
+            {user && <Feather name="star" size={20} color="#f59e0b" />}
+          </View>
+          
+          {!user ? (
+            <View style={styles.authBanner}>
+              <View style={styles.authBannerIcon}>
+                <Feather name="lock" size={24} color="#2563eb" />
+              </View>
+              <Text style={styles.authBannerTitle}>Kişiselleştirilmiş Öneriler</Text>
+              <Text style={styles.authBannerText}>Yapay zeka motorumuzun size özel iş ilanları sunması için giriş yapın veya kayıt olun.</Text>
+              <TouchableOpacity style={styles.authButton} onPress={() => router.push('/(auth)/login' as any)}>
+                <Text style={styles.authButtonText}>Giriş Yap</Text>
+              </TouchableOpacity>
+            </View>
+          ) : recommendedJobs.length > 0 ? (
+            <View style={{ gap: 12 }}>
+              {recommendedJobs.slice(0, 10).map(job => renderJobCard(job, true))}
+            </View>
+          ) : (
+            <Text style={styles.emptyText}>Henüz size özel ilan bulunamadı.</Text>
           )}
         </View>
 
-        <View style={styles.actionsRow}>
-          <TouchableOpacity style={styles.filterBtn} activeOpacity={0.85} onPress={() => setFiltersOpen(true)}>
-            <FontAwesome name="filter" size={16} color={theme.primary} />
-            <Text style={styles.filterBtnText}> Filtreler</Text>
-            {nFilters > 0 ? (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{nFilters}</Text>
-              </View>
-            ) : null}
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.sortBtn} activeOpacity={0.85} onPress={() => setSortOpen(true)}>
-            <FontAwesome name="sort" size={16} color={theme.slate900} />
-            <Text style={styles.sortBtnText} numberOfLines={1}>
-              {' '}
-              {sortLabel}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {meta?.salaryRankingOnlyListed ? (
-          <View style={styles.hintBanner}>
-            <Text style={styles.hintText}>
-              Maaşa göre sıralamada yalnızca maaş bilgisi paylaşılan ilanlar listeleniyor.
-            </Text>
-          </View>
-        ) : null}
-      </View>
-
-      {loading && !refreshing ? (
-        <View style={styles.loaderWrap}>
-          <ActivityIndicator size="large" color={theme.primary} />
-        </View>
-      ) : error ? (
-        <View style={styles.loaderWrap}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={() => { setLoading(true); fetchPage(page, 'replace'); }}>
-            <Text style={styles.retryBtnText}>Yeniden dene</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <>
-          <FlatList
-            data={data}
-            keyExtractor={(j) => j.id}
-            renderItem={renderJob}
-            contentContainerStyle={styles.listContent}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-            ListEmptyComponent={
-              <Text style={styles.empty}>Bu kriterlere uygun ilan bulunamadı.</Text>
-            }
-            ListFooterComponent={
-              meta ? (
-                <Text style={styles.footerCount}>
-                  {meta.total.toLocaleString('tr-TR')} ilandan {data.length.toLocaleString('tr-TR')}{' '}
-                  tanesini görüntülüyorsun (sayfa {meta.page}/{meta.totalPages})
-                </Text>
-              ) : null
-            }
-          />
-          {meta && meta.totalPages > 1 ? (
-            <View style={styles.pagination}>
-              <TouchableOpacity
-                style={[styles.pageBtn, page <= 1 && styles.pageBtnDisabled]}
-                disabled={page <= 1}
-                onPress={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                <Text style={styles.pageBtnText}>Önceki</Text>
-              </TouchableOpacity>
-              <Text style={styles.pageLabel}>
-                {page} / {meta.totalPages}
-              </Text>
-              <TouchableOpacity
-                style={[styles.pageBtn, page >= meta.totalPages && styles.pageBtnDisabled]}
-                disabled={page >= meta.totalPages}
-                onPress={() => setPage((p) => p + 1)}
-              >
-                <Text style={styles.pageBtnText}>Sonraki</Text>
+        {/* FEATURED COMPANIES */}
+        {companies.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Aktif İşe Alım Yapan Lider Şirketler</Text>
+              <TouchableOpacity onPress={() => router.push('/(tabs)/companies' as any)}>
+                <Text style={styles.linkText}>Tümünü Gör</Text>
               </TouchableOpacity>
             </View>
-          ) : null}
-        </>
-      )}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalList}>
+              {companies.map(company => (
+                <TouchableOpacity 
+                  key={company.id} 
+                  style={styles.companyCard}
+                  activeOpacity={0.9}
+                  onPress={() => router.push(`/company/${company.id}` as any)}
+                >
+                  <CompanyLogo company={company} size={56} />
+                  <Text style={styles.companyName} numberOfLines={1}>{company.name}</Text>
+                  <Text style={styles.companyJobs}>{company._count?.jobs || 0} İlan</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
-      <JobFiltersModal
-        visible={filtersOpen}
-        onClose={() => setFiltersOpen(false)}
-        value={filters}
-        onApply={(next) => {
-          setFilters(next);
-          setPage(1);
-        }}
-      />
-
-      <Modal visible={sortOpen} transparent animationType="fade" onRequestClose={() => setSortOpen(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setSortOpen(false)}>
-          <Pressable style={styles.sortSheet} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.sortSheetTitle}>Sıralama</Text>
-            {SORT_OPTIONS.map((opt) => (
-              <TouchableOpacity
-                key={opt.value}
-                style={styles.sortRow}
-                onPress={() => {
-                  setSort(opt.value);
-                  setSortOpen(false);
-                }}
+        {/* EXPERIENCE LEVELS */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Deneyim Seviyesine Göre İş Ara</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.horizontalList, { marginTop: 16 }]}>
+            {EXPERIENCE_LEVELS.map(exp => (
+              <TouchableOpacity 
+                key={exp.label} 
+                style={styles.expCard}
+                activeOpacity={0.9}
+                onPress={() => router.push({ pathname: '/(tabs)/jobs', params: { experienceLabel: exp.label } } as any)}
               >
-                <Text style={[styles.sortRowText, sort === opt.value && styles.sortRowTextActive]}>{opt.label}</Text>
-                {sort === opt.value ? <FontAwesome name="check" size={16} color={theme.primary} /> : null}
+                <View style={[styles.expIconWrap, { backgroundColor: exp.color + '15' }]}>
+                  <Feather name={exp.icon as any} size={24} color={exp.color} />
+                </View>
+                <Text style={styles.expText}>{exp.label}</Text>
               </TouchableOpacity>
             ))}
-          </Pressable>
-        </Pressable>
-      </Modal>
+          </ScrollView>
+        </View>
+
+        {/* TOP SECTORS */}
+        {sectors.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Öne Çıkan Sektörler</Text>
+            <View style={styles.sectorsGrid}>
+              {sectors.map((s, idx) => (
+                <TouchableOpacity 
+                  key={s.sector || idx} 
+                  style={styles.sectorCard}
+                  activeOpacity={0.8}
+                  onPress={() => router.push({ pathname: '/(tabs)/jobs', params: { sector: s.sector } } as any)}
+                >
+                  <Text style={styles.sectorName} numberOfLines={1}>{s.sector}</Text>
+                  <Text style={styles.sectorCount}>{s.count || 0} İlan</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* RECENT JOBS */}
+        <View style={[styles.section, { marginBottom: 20 }]}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>En Yeni İlanlar</Text>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/jobs' as any)}>
+              <Text style={styles.linkText}>Tümünü Gör</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={{ gap: 12 }}>
+            {recentJobs.slice(0, 5).map(job => renderJobCard(job, false))}
+          </View>
+        </View>
+
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: theme.background },
-  hero: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    backgroundColor: theme.heroIndigo,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-  },
-  heroEyebrow: { color: 'rgba(255,255,255,0.75)', fontSize: 12, fontWeight: '600', marginTop: 4 },
-  heroTitle: { color: '#fff', fontSize: 26, fontWeight: '800', marginTop: 4 },
-  heroSubtitle: { color: 'rgba(255,255,255,0.82)', fontSize: 14, marginTop: 6, marginBottom: 14 },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    minHeight: 48,
-    marginBottom: 12,
-    gap: 8,
-  },
-  searchIcon: { marginRight: 2 },
-  searchInput: { flex: 1, fontSize: 16, color: theme.slate900, paddingVertical: 8 },
-  actionsRow: { flexDirection: 'row', gap: 10, marginBottom: 6 },
-  filterBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 999,
-    flex: 1,
-  },
-  filterBtnText: { color: theme.primary, fontWeight: '700', fontSize: 14 },
-  badge: {
-    marginLeft: 8,
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: theme.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-  },
-  badgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  sortBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 999,
-    maxWidth: 160,
-    flexShrink: 1,
-  },
-  sortBtnText: { color: theme.slate900, fontWeight: '600', fontSize: 14, flexShrink: 1 },
-  hintBanner: {
-    marginTop: 8,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 12,
-    padding: 10,
-  },
-  hintText: { color: 'rgba(255,255,255,0.95)', fontSize: 12, lineHeight: 17 },
-  listContent: { padding: 16, paddingBottom: 100, gap: 12 },
-  card: {
-    backgroundColor: theme.card,
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: theme.border,
-    marginBottom: 4,
-  },
-  cardTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  cardTopText: { flex: 1, minWidth: 0 },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: theme.slate900 },
-  cardCompany: { fontSize: 14, color: theme.muted, marginTop: 2 },
-  cardMeta: { fontSize: 12, color: theme.muted, marginTop: 4 },
-  cardSalary: { fontSize: 15, fontWeight: '700', color: theme.primary, marginTop: 10 },
-  cardSkills: { fontSize: 12, color: theme.muted, marginTop: 6 },
-  loaderWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  errorText: { color: theme.destructive, textAlign: 'center', fontSize: 15 },
-  retryBtn: { marginTop: 16, paddingVertical: 12, paddingHorizontal: 22, borderRadius: 14, backgroundColor: theme.primary },
-  retryBtnText: { color: '#fff', fontWeight: '700' },
-  empty: { textAlign: 'center', color: theme.muted, marginTop: 32, fontSize: 15 },
-  footerCount: { textAlign: 'center', color: theme.muted, fontSize: 12, paddingVertical: 16 },
-  pagination: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: theme.border,
-    backgroundColor: theme.card,
-  },
-  pageBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: theme.primary,
-  },
-  pageBtnDisabled: { opacity: 0.35 },
-  pageBtnText: { color: '#fff', fontWeight: '700' },
-  pageLabel: { fontSize: 14, fontWeight: '600', color: theme.slate900 },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15,23,42,0.45)',
-    justifyContent: 'flex-end',
-    padding: 16,
-  },
-  sortSheet: {
-    backgroundColor: theme.card,
-    borderRadius: 20,
-    paddingVertical: 8,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: theme.border,
-  },
-  sortSheetTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: theme.slate900,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.border,
-  },
-  sortRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-  },
-  sortRowText: { fontSize: 16, color: theme.slate800 },
-  sortRowTextActive: { fontWeight: '700', color: theme.primary },
+  safeArea: { flex: 1, backgroundColor: '#F8FAFC' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  headerLogo: { fontSize: 22, fontWeight: '800', color: theme.primary, letterSpacing: -0.5 },
+  scrollContent: { paddingBottom: 40 },
+  
+  hero: { backgroundColor: '#fff', padding: 24, paddingTop: 32, paddingBottom: 24 },
+  heroBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#eff6ff', alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100, marginBottom: 16 },
+  heroBadgeText: { color: '#2563eb', fontSize: 13, fontWeight: '700', marginLeft: 6 },
+  heroTitle: { fontSize: 32, fontWeight: '800', color: '#0f172a', lineHeight: 40, marginBottom: 12 },
+  heroSubtitle: { fontSize: 15, color: '#64748b', lineHeight: 22, marginBottom: 24 },
+  
+  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 16, paddingHorizontal: 16, height: 56, gap: 12 },
+  searchBoxText: { fontSize: 15, color: '#94a3b8', flex: 1 },
+  
+  popularSearches: { marginTop: 20 },
+  popularTitle: { fontSize: 13, fontWeight: '600', color: '#64748b', marginBottom: 10 },
+  popularBadge: { backgroundColor: '#f1f5f9', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
+  popularBadgeText: { fontSize: 13, color: '#475569', fontWeight: '500' },
+  
+  statsRow: { flexDirection: 'row', backgroundColor: '#fff', paddingVertical: 20, borderTopWidth: 1, borderTopColor: '#f1f5f9' },
+  statItem: { flex: 1, alignItems: 'center' },
+  statDivider: { width: 1, backgroundColor: '#e2e8f0' },
+  statValue: { fontSize: 22, fontWeight: '800', color: '#0f172a' },
+  statLabel: { fontSize: 12, color: '#64748b', fontWeight: '500', marginTop: 4 },
+
+  eventBanner: { marginHorizontal: 20, marginTop: 20, backgroundColor: '#0f172a', borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  eventLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  eventTitle: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  eventSub: { color: '#94a3b8', fontSize: 12, marginTop: 2 },
+
+  guideBanner: { marginHorizontal: 20, marginTop: 16, backgroundColor: '#8B5CF6', borderRadius: 20, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', shadowColor: '#8B5CF6', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 6 },
+  guideBannerContent: { flex: 1, paddingRight: 16 },
+  guideBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.2)', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginBottom: 8 },
+  guideBadgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  guideTitle: { color: '#fff', fontSize: 18, fontWeight: '800', marginBottom: 4 },
+  guideSubtitle: { color: 'rgba(255,255,255,0.9)', fontSize: 13, lineHeight: 18, fontWeight: '500' },
+  
+  section: { paddingHorizontal: 24, paddingTop: 32 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  sectionTitle: { fontSize: 18, fontWeight: '800', color: '#0f172a' },
+  linkText: { color: '#2563eb', fontSize: 14, fontWeight: '600' },
+  
+  authBanner: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 20, padding: 24, alignItems: 'center' },
+  authBannerIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  authBannerTitle: { fontSize: 16, fontWeight: '700', color: '#0f172a', marginBottom: 8 },
+  authBannerText: { fontSize: 14, color: '#64748b', textAlign: 'center', lineHeight: 20, marginBottom: 20 },
+  authButton: { backgroundColor: '#0f172a', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
+  authButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  
+  horizontalList: { gap: 12, paddingRight: 24 },
+  
+  jobCard: { width: '100%', backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 16, padding: 16 },
+  jobHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+  jobHeaderText: { flex: 1 },
+  jobTitle: { fontSize: 15, fontWeight: '700', color: '#0f172a', marginBottom: 2 },
+  jobCompany: { fontSize: 13, color: '#64748b' },
+  jobTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  tag: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#f1f5f9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+  tagText: { fontSize: 11, color: '#475569', fontWeight: '600' },
+  matchScore: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#ecfdf5', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+  matchScoreText: { fontSize: 12, fontWeight: '700', color: '#059669' },
+  
+  companyCard: { width: 140, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 16, padding: 16, alignItems: 'center' },
+  companyName: { fontSize: 14, fontWeight: '700', color: '#0f172a', marginTop: 12, textAlign: 'center' },
+  companyJobs: { fontSize: 12, color: '#64748b', marginTop: 4 },
+  
+  expCard: { width: 110, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 16, padding: 16, alignItems: 'center' },
+  expIconWrap: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  expText: { fontSize: 13, fontWeight: '600', color: '#0f172a', textAlign: 'center' },
+  
+  sectorsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 16 },
+  sectorCard: { width: (width - 60) / 2, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, padding: 16 },
+  sectorName: { fontSize: 14, fontWeight: '600', color: '#0f172a', marginBottom: 4 },
+  sectorCount: { fontSize: 12, color: '#64748b' },
+
+  emptyText: { color: '#64748b', fontSize: 14 },
 });

@@ -269,7 +269,7 @@ export default function ProfilePage() {
         setMergeCvId(res.data.cvId);
         setMergeRejected(new Set());
       } else if (res.data.aiFailed) {
-        alert("CV dosyanız yüklendi ancak formatından dolayı içeriği okunamadı. Lütfen bilgilerinizi manuel giriniz.");
+        alert("CV dosyanız başarıyla yüklendi ancak yapay zeka servisi yoğunluk/kota sınırına ulaştığı için veya dosya formatı desteklenmediğinden otomatik okunamadı. Lütfen bilgilerinizi manuel giriniz.");
       }
       if (res.data.user) setUser(res.data.user);
     } catch { alert("CV yüklenirken bir hata oluştu."); }
